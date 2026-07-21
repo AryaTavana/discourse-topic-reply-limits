@@ -2,7 +2,7 @@
 
 # name: discourse-topic-reply-limits
 # about: Applies per-topic reply limits to selected Discourse groups.
-# version: 1.0.3
+# version: 1.0.4
 # authors: Arya Tavana
 # url: https://github.com/AryaTavana/discourse-topic-reply-limits
 # required_version: 3.5.0

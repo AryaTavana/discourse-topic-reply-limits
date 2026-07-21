@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.4
+
+- Fix blank Create and Edit rule cards on current stable Discourse by rendering
+  the rule form in `AdminConfigAreaCard`'s required named content block.
+- Add an acceptance regression test that verifies the complete create form is
+  present inside the admin card.
+
 ## 1.0.3
 
 - Fix the blank Reply limit rules tab on current stable Discourse by removing

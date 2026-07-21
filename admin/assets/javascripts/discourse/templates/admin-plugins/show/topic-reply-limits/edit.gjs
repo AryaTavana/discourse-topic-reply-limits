@@ -13,6 +13,8 @@ export default <template>
       "discourse_topic_reply_limits.admin.form.edit_title"
     }}
   >
-    <TopicReplyLimitRuleSetForm @model={{@model}} @editing={{true}} />
+    <:content>
+      <TopicReplyLimitRuleSetForm @model={{@model}} @editing={{true}} />
+    </:content>
   </AdminConfigAreaCard>
 </template>

@@ -50,4 +50,21 @@ acceptance("Admin - Topic reply limits", function (needs) {
       .dom(".topic-reply-limit-rules")
       .exists("the reply-limit rule list renders");
   });
+
+  test("renders the create rule form inside the admin card", async function (assert) {
+    await visit(
+      "/admin/plugins/discourse-topic-reply-limits/reply-limits/new"
+    );
+
+    assert.strictEqual(
+      currentURL(),
+      "/admin/plugins/discourse-topic-reply-limits/reply-limits/new"
+    );
+    assert
+      .dom(".admin-config-area-card__content .topic-reply-limit-form")
+      .exists("the form is rendered in the card's named content block");
+    assert
+      .dom(".topic-reply-limit-form .form-kit__section")
+      .exists({ count: 3 }, "the topic, group limits, and actions render");
+  });
 });
