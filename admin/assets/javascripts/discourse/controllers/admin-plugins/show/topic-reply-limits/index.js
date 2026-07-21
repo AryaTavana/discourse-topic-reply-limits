@@ -1,3 +1,4 @@
+import { tracked } from "@glimmer/tracking";
 import Controller from "@ember/controller";
 import { action } from "@ember/object";
 import { service } from "@ember/service";
@@ -9,13 +10,31 @@ export default class AdminPluginsShowTopicReplyLimitsIndexController extends Con
   @service dialog;
   @service toasts;
 
+  @tracked filter = "";
+
+  get filteredRuleSets() {
+    const query = this.filter.trim().toLocaleLowerCase();
+
+    if (!query) {
+      return this.model;
+    }
+
+    return this.model.filter((ruleSet) =>
+      ruleSet.topic_title.toLocaleLowerCase().includes(query)
+    );
+  }
+
+  @action
+  updateFilter(event) {
+    this.filter = event.target.value;
+  }
+
   @action
   destroyRuleSet(ruleSet) {
     this.dialog.deleteConfirm({
-      message: i18n(
-        "discourse_topic_reply_limits.admin.rules.delete_confirm",
-        { topic: ruleSet.topic_title }
-      ),
+      message: i18n("discourse_topic_reply_limits.admin.rules.delete_confirm", {
+        topic: ruleSet.topic_title,
+      }),
       didConfirm: async () => {
         try {
           await ajax(

@@ -1,6 +1,21 @@
 @use "lib/viewport";
 
 .topic-reply-limit-rules {
+  &__filter {
+    display: grid;
+    gap: 0.25em;
+    margin-block-end: 1em;
+    max-width: 30em;
+
+    label {
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+    }
+  }
+
   &__table {
     width: 100%;
   }
@@ -16,7 +31,6 @@
     margin: 0;
     padding: 0;
     list-style: none;
-
   }
 
   &__assignment {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.3
+
+- Fix the blank Reply limit rules tab on current stable Discourse by removing
+  an unavailable admin filter component that prevented the admin JavaScript
+  bundle from loading.
+- Preserve topic-title filtering with a native tracked search field.
+
 ## 1.0.2
 
 - Add an admin-only HTML fallback for the nested Reply limit rules routes so
