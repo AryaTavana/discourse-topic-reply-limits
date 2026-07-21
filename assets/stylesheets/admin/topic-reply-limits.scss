@@ -1,0 +1,51 @@
+@use "lib/viewport";
+
+.topic-reply-limit-rules {
+  &__table {
+    width: 100%;
+  }
+
+  &__topic-id {
+    color: var(--primary-medium);
+    font-size: var(--font-down-1);
+  }
+
+  &__assignments {
+    display: grid;
+    gap: 0.25em;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+  }
+
+  &__assignment {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    justify-content: space-between;
+  }
+}
+
+.topic-reply-limit-form {
+  &__assignment {
+    margin-block-end: 1em;
+    padding-block-end: 1em;
+    border-block-end: 1px solid var(--primary-low);
+  }
+
+  &__remove,
+  &__add {
+    margin-block-start: 0.5em;
+  }
+
+  .form-kit__row {
+    align-items: start;
+    gap: 1em;
+
+    @include viewport.until(md) {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+  }
+}

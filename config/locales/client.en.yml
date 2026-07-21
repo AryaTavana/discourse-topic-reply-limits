@@ -1,0 +1,39 @@
+en:
+  js:
+    discourse_topic_reply_limits:
+      reached: "You have reached your reply limit for this topic."
+      warning:
+        one: "You have used %{percentage}% of your allowed replies for this topic. You have %{count} reply remaining."
+        other: "You have used %{percentage}% of your allowed replies for this topic. You have %{count} replies remaining."
+      admin:
+        title: "Topic reply limits"
+        rules:
+          title: "Reply limit rules"
+          description: "Manage per-topic reply limits for one or more groups."
+          add: "Add reply limit rule"
+          search: "Search topics"
+          no_results: "No reply limit rules match this topic search."
+          empty: "No topic reply limit rules have been created."
+          group_limits: "Group limits"
+          limit_summary: "%{limit} replies · warn at %{percentage}%"
+          delete: "Delete reply limit rule"
+          delete_confirm: "Delete all reply limit rules for “%{topic}”? Usage counters will be retained."
+          delete_success: "The reply limit rule was deleted."
+        form:
+          back: "Back to reply limit rules"
+          create_title: "Create a topic reply limit"
+          edit_title: "Edit a topic reply limit"
+          topic_section: "Topic"
+          topic: "Topic"
+          topic_help: "Search for an existing regular topic."
+          limits_section: "Group limits"
+          limits_help: "Each selected group has its own independent limit."
+          group: "Group"
+          reply_limit: "Reply limit"
+          warning_percentage: "Warning percentage"
+          add_group: "Add group limit"
+          remove_group: "Remove group limit"
+          create: "Create reply limit"
+          update: "Save changes"
+          create_success: "The topic reply limit was created."
+          update_success: "The topic reply limit was updated."

@@ -1,0 +1,19 @@
+.topic-reply-limits-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-block: 0.75em;
+  padding: 0.75em 1em;
+  border: 1px solid var(--primary-low);
+  background: var(--primary-very-low);
+  color: var(--primary-high);
+
+  &.--warning {
+    border-color: var(--tertiary-medium);
+  }
+
+  &.--reached {
+    border-color: var(--danger-medium);
+    color: var(--danger);
+  }
+}
