@@ -1,6 +1,12 @@
 # frozen_string_literal: true
 
 Discourse::Application.routes.draw do
+  # Serve the Discourse application shell for direct navigation and refreshes
+  # of the nested Ember admin routes. API routes below remain JSON-only.
+  get "/admin/plugins/discourse-topic-reply-limits/reply-limits(/*path)" =>
+        "admin/admin#index",
+      constraints: AdminConstraint.new
+
   scope "/admin/plugins/discourse-topic-reply-limits",
         constraints: AdminConstraint.new,
         defaults: {

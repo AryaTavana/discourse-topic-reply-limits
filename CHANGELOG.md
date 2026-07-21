@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2
+
+- Add an admin-only HTML fallback for the nested Reply limit rules routes so
+  direct navigation and browser refreshes load the Discourse application shell
+  instead of the server-side 404 page.
+
 ## 1.0.1
 
 - Fix modern Discourse Admin route, controller, and template module placement so
