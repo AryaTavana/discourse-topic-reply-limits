@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.5
+
+- Redesign warning and reached-limit notices with high-contrast, theme-aware
+  colors that remain readable in light and dark color schemes.
+- Improve notice hierarchy with prominent icons, titles, messages, and a
+  separately emphasized remaining-reply count.
+- Add appropriate live-region semantics for warning and blocking states.
+
 ## 1.0.4
 
 - Fix blank Create and Edit rule cards on current stable Discourse by rendering
