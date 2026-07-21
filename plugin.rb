@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # name: discourse-topic-reply-limits
-# about: Applies per-topic reply limits to selected Discourse groups.
-# version: 1.0.5
+# about: Applies monthly per-topic reply allowances with carryover to selected Discourse groups.
+# version: 1.1.0
 # authors: Arya Tavana
 # url: https://github.com/AryaTavana/discourse-topic-reply-limits
 # required_version: 3.5.0
@@ -48,6 +48,7 @@ end
 require_relative "lib/discourse_topic_reply_limits/engine"
 
 after_initialize do
+  require_relative "lib/discourse_topic_reply_limits/calendar"
   require_relative "lib/discourse_topic_reply_limits/reply_creation_tracker"
   require_relative "lib/discourse_topic_reply_limits/reply_state"
 
@@ -84,14 +85,72 @@ after_initialize do
 
   add_model_callback(Group, :after_destroy) do
     DiscourseTopicReplyLimits::Rule.where(group_id: id).delete_all
+    DiscourseTopicReplyLimits::RulePeriod.where(group_id: id).delete_all
+    DiscourseTopicReplyLimits::MembershipPeriod.where(group_id: id).delete_all
+    DiscourseTopicReplyLimits::Usage.where(group_id: id).delete_all
   end
 
   add_model_callback(User, :after_destroy) do
     DiscourseTopicReplyLimits::Usage.where(user_id: id).delete_all
+    DiscourseTopicReplyLimits::MembershipPeriod.where(user_id: id).delete_all
+    DB.exec("DELETE FROM topic_reply_limit_usages WHERE user_id = ?", id)
   end
 
   add_model_callback(Topic, :after_destroy) do
     DiscourseTopicReplyLimits::Rule.where(topic_id: id).delete_all
+    DiscourseTopicReplyLimits::RulePeriod.where(topic_id: id).delete_all
     DiscourseTopicReplyLimits::Usage.where(topic_id: id).delete_all
+    DB.exec("DELETE FROM topic_reply_limit_usages WHERE topic_id = ?", id)
+  end
+
+  add_model_callback(GroupUser, :after_create) do
+    next unless DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
+                  user_id:,
+                  group_id:
+                )
+
+    DiscourseTopicReplyLimits::MembershipPeriod.activate!(
+      user_id:,
+      group_id:,
+      at: created_at
+    )
+  end
+
+  add_model_callback(GroupUser, :before_destroy) do
+    next unless DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
+                  user_id:,
+                  group_id:
+                )
+
+    DiscourseTopicReplyLimits::MembershipPeriod.deactivate!(
+      user_id:,
+      group_id:,
+      at: Time.zone.now,
+      starts_at: created_at
+    )
+  end
+
+  on(:user_added_to_group) do |user, group, automatic: _automatic|
+    if DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
+         user_id: user.id,
+         group_id: group.id
+       )
+      DiscourseTopicReplyLimits::MembershipPeriod.activate!(
+        user_id: user.id,
+        group_id: group.id
+      )
+    end
+  end
+
+  on(:user_removed_from_group) do |user, group|
+    if DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
+         user_id: user.id,
+         group_id: group.id
+       )
+      DiscourseTopicReplyLimits::MembershipPeriod.deactivate!(
+        user_id: user.id,
+        group_id: group.id
+      )
+    end
   end
 end

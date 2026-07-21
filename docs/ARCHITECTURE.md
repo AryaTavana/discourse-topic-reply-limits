@@ -2,94 +2,110 @@
 
 ## Ownership boundaries
 
-Discourse owns topics, posts, groups, and reply enforcement. External systems
-may manage group membership or administer rule sets through authenticated
-Discourse APIs, but they do not write plugin tables directly.
+Django owns subscription status and selects a user's single active forum tier.
+Its existing DiscourseConnect payload and hourly Discourse API reconciliation add
+or remove the corresponding Discourse group. Discourse owns topics, committed
+posts, monthly reply accounting, carryover, and enforcement.
 
-The browser is advisory. The serialized topic state disables reply controls and
-updates warning text immediately after a successful reply, while the model
-callback remains authoritative for every post-creation path.
+The browser is advisory. Serialized state disables reply controls, updates after
+a successful post, and refreshes at the next credit boundary. The server-side
+post callback remains authoritative for web, mobile, API, email, and concurrent
+requests.
 
-## Rule resolution
+## Calendar and rollover policy
 
-A rule row represents exactly one topic/group assignment. Matching uses
-Discourse's `User#in_any_groups?` semantics, including supported automatic
-groups. Staff users, private-message topics, and topics without matching rules
-short-circuit before any usage query.
+Periods are UTC calendar months. A matching topic/group rule grants one base
+allowance in every calendar month during which the user's group-membership
+interval overlaps that month. A partial eligible month receives the full
+allowance.
 
-When multiple groups match, each rule evaluates the same lifetime topic usage
-independently. Reaching any matching assignment rejects the next reply. No tier
-selection or limit aggregation is performed.
+For each eligible period:
 
-## Counter lifecycle
+```text
+total_available = monthly_allowance + carried_in
+remaining       = max(total_available - created_replies, 0)
+next carried_in = remaining
+```
 
-Usage is keyed by `(user_id, topic_id)`, not by a rule. This is important:
-
-- changing groups does not erase history;
-- increasing or decreasing a limit immediately evaluates existing usage;
-- deleting and recreating a rule does not restore quota;
-- editing or deleting posts never mutates usage.
-
-The first counted reply after installation or rule creation initializes usage
-from all regular posts by that user in the topic via `Post.with_deleted`. The
-new, unsaved reply is then incremented exactly once.
-
-## Transaction and concurrency model
-
-The post `before_create` callback executes inside the Active Record reply
-transaction. Before reading or creating usage, it obtains a transaction-scoped
-PostgreSQL advisory lock derived from the user/topic pair. It then locks the
-usage row, checks all matching assignments, increments usage, and allows the post
-insert to continue.
-
-The advisory lock remains held until the outer reply transaction commits or
-rolls back. This covers the otherwise unsafe first-use case where no row exists
-to lock, and it works across threads and multiple Discourse application
-processes. A later post failure rolls back the usage increment with the post.
-
-Database uniqueness and check constraints are a final invariant layer.
-
-## Warning calculation
+Carryover is intentionally uncapped. An inactive month creates no usage row and
+adds no allowance. The most recently earned remaining balance is frozen across
+the gap and becomes `carried_in` when an eligible month resumes.
 
 The warning starts at:
 
 ```text
-ceil(reply_limit * warning_percentage / 100)
+ceil(total_available * warning_percentage / 100)
 ```
 
-For a limit of 20 and threshold of 80, the warning begins at reply 16 with four
-remaining. The reached message replaces warnings once usage equals the limit.
+This means the warning reflects everything the user can spend that month,
+including rollover.
 
-## Security
+## Rule and membership history
 
-- Admin rule routes have an `AdminConstraint`, an admin controller, and service
-  policy checks.
-- Strong parameters and service contracts constrain nested assignments.
-- Topics must exist and use the regular archetype; all selected groups must
-  exist; group IDs must be unique within a rule set.
-- The user status endpoint requires login and `Guardian#ensure_can_see!`.
-- User-facing state omits rule IDs, group IDs, and group names; it exposes only
-  the counters and thresholds needed to render the warning.
-- Staff bypass is enforced on the server, not inferred from client state.
-- No endpoint accepts a user ID for reading or changing usage.
-- Normal Discourse CSRF and API-key protections apply.
+`topic_reply_limit_rules` stores the administrator's current configuration.
+`topic_reply_limit_rule_periods` snapshots the value granted for each month.
+Before an administrator edits or deletes a rule, snapshots are filled through
+the current month with the old value. The saved value therefore applies to the
+next monthly credit and never retroactively changes an already granted balance.
 
-## Audit and cleanup
+`topic_reply_limit_membership_periods` records group intervals. Current members
+are bootstrapped when a rule is created and during the 1.1 migration. Both
+`GroupUser` callbacks and Discourse's bulk group events are observed, covering
+the direct DiscourseConnect path and the GroupManager/API path. Duplicate events
+are idempotent under a user/group advisory lock.
 
-Atomic rule replacement and deletion are service transactions. Each change
-writes a custom `UserHistory` staff action containing the topic and assignment
-summary. Permanent destruction callbacks remove dependent plugin rows. Soft
-deletion is intentionally retained.
+If a user matches multiple configured groups, each group ledger is evaluated and
+consumed independently. Reaching any matching assignment rejects the reply. The
+plugin does not select a highest or lowest tier. NEoWaveChart normally emits one
+forum tier, so subscribers normally have one applicable ledger.
 
-## Future extension points
+## Usage lifecycle and historical reconciliation
 
-Useful additions that fit this design without weakening v1 semantics:
+`topic_reply_limit_period_usages` is unique by
+`(user_id, topic_id, group_id, period_start)`. Each row snapshots the base
+allowance and warning percentage, records carry-in and created replies, and
+stores the last reply time.
 
-1. Entitlement-period counters using a Django-issued immutable period key.
-2. Admin usage analytics and CSV export from read-only reporting endpoints.
-3. Explicit, expiring per-user overrides with separate audit records.
-4. A user dashboard backed by guardian-scoped aggregate status endpoints.
-5. Discourse notifications at threshold/limit, with idempotency markers.
+Missing eligible months are materialized lazily. Membership intervals and post
+statistics are fetched in batches. Regular replies from the whole calendar
+month are reconciled with `Post.with_deleted`; the stored value only moves up.
+Consequently, soft deletion, permanent deletion, and editing can never restore
+quota, and replies created before joining a tier still count for that calendar
+month as required by the original counter semantics.
 
-These are not mixed into the core rule path until their lifecycle and privacy
-requirements are explicit.
+The 1.1 migration leaves the old `topic_reply_limit_usages` table untouched for
+zero-downtime rollout and rollback/audit safety. It is never consulted for
+monthly enforcement. The first monthly materialization uses authoritative
+current-month posts instead of trying to reinterpret a lifetime total.
+
+## Transaction and concurrency model
+
+The post `before_create` callback runs in the reply transaction. A PostgreSQL
+transaction-scoped advisory lock derived from `(user_id, topic_id)` serializes
+all applicable group ledgers, including first use when no row exists. Under that
+lock, missing periods are materialized, every matching balance is checked, and
+all matching current rows are incremented.
+
+The increment commits or rolls back with the post. Database unique indexes and
+check constraints protect the final invariants. A separate advisory lock
+serializes membership transitions by `(user_id, group_id)`.
+
+## Security and lifecycle
+
+- Rule routes require the admin constraint, admin controller, service policy,
+  validated nested input, and normal CSRF/API authentication.
+- The status endpoint requires login and `Guardian#ensure_can_see!`; it can only
+  return the current user's state and normal reply permission.
+- User-facing state omits rule, group, and user identifiers.
+- Staff bypass is decided on the server.
+- SQL values are bound; fixed aggregate expressions are not user-controlled.
+- Rule changes retain custom staff-action audit entries.
+- Permanent group/user/topic destruction removes associated plugin records;
+  soft-deleted topics retain them for restoration.
+
+## Future extensions
+
+Read-only user dashboards, analytics/export, expiring overrides, and idempotent
+threshold notifications fit this ledger. Billing-anniversary periods require a
+separate signed entitlement identifier from Django; they must not be inferred
+from group removal/re-addition.

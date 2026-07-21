@@ -9,14 +9,18 @@ grant access to topics.
 
 - One or more group-specific limits for any regular topic.
 - Topic and group search/select controls in Discourse Admin.
-- Configurable warning threshold per group (80% by default).
+- UTC calendar-month allowances with unlimited unused-reply carryover.
+- Subscription-group interval tracking: inactive months add no allowance, while
+  an earned balance remains frozen until the group is restored.
+- Configurable warning threshold per group (80% by default), calculated against
+  the month's new allowance plus carryover.
 - Server-side enforcement for web, mobile, API, and email-created replies.
 - Immediate client-side warning updates and reply-composer disabling.
 - Staff bypass for administrators and moderators.
-- Lifetime created-reply counters: deletion never restores quota and editing
+- Monthly created-reply counters: deletion never restores quota and editing
   never consumes quota.
-- Historical backfill: the first counter is initialized from all existing
-  regular replies, including soft-deleted replies.
+- Current-month backfill includes regular replies created before the rule/group
+  became active and includes soft-deleted replies.
 - Transaction-scoped locking, database uniqueness, and check constraints.
 - Staff action audit entries for rule changes.
 - Admin JSON rule API and a guardian-protected current-user status API.
@@ -66,13 +70,13 @@ bundle exec rails db:migrate
    already enabled.
 2. Open **Admin > Plugins > Topic reply limits > Reply limit rules**.
 3. Select an existing regular topic.
-4. Add one or more group assignments, each with its own reply limit and warning
-   percentage.
+4. Add one or more group assignments, each with its own monthly reply allowance
+   and warning percentage.
 5. Save the rule set.
 
 For example, one topic can have these independent assignments:
 
-| Group | Reply limit | Warning |
+| Group | Monthly allowance | Warning |
 | --- | ---: | ---: |
 | `forum_general` | 5 | 80% |
 | `forum_advanced` | 20 | 80% |
@@ -85,18 +89,25 @@ should retain that permission, and configure category security separately.
 
 ## User behavior
 
-The counter is shared by a user and topic. It records how many regular replies
-that user has created in that topic:
+Each matching topic/group assignment grants its configured allowance once per
+UTC calendar month:
 
 - Creating a reply consumes one unit.
 - Editing a reply consumes nothing.
 - Soft-deleting or permanently deleting a reply does not return a unit.
+- Unused replies carry forward without a cap. For example, using 2 of 5 leaves
+  3 carried replies; the next eligible month starts with 8 available.
+- If Django removes the user from the assigned group, the existing balance is
+  frozen and inactive months add nothing. Rejoining restores the balance and
+  adds the current month's allowance once.
 - Administrators and moderators bypass every rule.
 - Private messages and non-regular system posts are not counted.
 
-At the configured threshold, the topic shows the used percentage and exact
-remaining count. At the limit, the topic's reply controls are disabled and the
-server rejects any crafted or concurrent extra request.
+At the configured threshold, the topic explains the monthly/carryover breakdown,
+remaining count, rollover behavior, and next credit date. At the limit, the
+topic's reply controls are disabled and the server rejects any crafted or
+concurrent extra request. An open topic refreshes its state automatically at the
+next credit boundary.
 
 If a user matches more than one configured group, every matching assignment is
 reported and enforced independently. The plugin does not choose or combine a
@@ -109,8 +120,15 @@ The installation migration creates:
 
 - `topic_reply_limit_rules`: one unique `(topic_id, group_id)` assignment with
   positive `reply_limit`, `warning_percentage` from 1 through 99, and timestamps.
-- `topic_reply_limit_usages`: one unique `(user_id, topic_id)` lifetime counter,
-  its last reply timestamp, and timestamps.
+- `topic_reply_limit_rule_periods`: immutable monthly snapshots of each rule so
+  later edits do not rewrite an allowance already granted.
+- `topic_reply_limit_membership_periods`: group-membership intervals used to
+  distinguish eligible and inactive calendar months.
+- `topic_reply_limit_period_usages`: one unique
+  `(user_id, topic_id, group_id, period_start)` monthly ledger row with the base
+  allowance, carried-in balance, created-reply count, and last reply timestamp.
+- `topic_reply_limit_usages`: the pre-1.1 lifetime rows retained untouched for
+  zero-downtime rollout and rollback/audit safety; they are no longer enforced.
 
 Discourse convention is followed by indexing logical references without adding
 database foreign keys to core tables. Plugin callbacks remove orphaned rows when
@@ -161,19 +179,21 @@ The acting API user must still be an administrator. Avoid a global-scope key.
 
 ## Subscription integration
 
-No clock-based reset is implemented. That is intentional after reviewing the
-NEoWaveChart subscription and Discourse group synchronization lifecycle. Django
-remains the entitlement authority, while Discourse remains the posting and
-counter authority. See [DJANGO_INTEGRATION.md](docs/DJANGO_INTEGRATION.md) for
-the findings and the recommended future period-key design.
+Django remains the subscription and tier authority; Discourse remains the reply
+ledger and enforcement authority. The existing SSO and hourly API group sync are
+the integration boundary, so no new shared secret or Django endpoint is needed
+for calendar-month allowances. See
+[DJANGO_INTEGRATION.md](docs/DJANGO_INTEGRATION.md) for the reviewed lifecycle
+and the separate design required if allowances later follow individual billing
+anniversaries instead of UTC calendar months.
 
 ## Operations
 
 - Rule create/update/delete actions are recorded as custom staff actions.
 - Disabling the site setting immediately stops enforcement and removes the
   client payload without deleting rules or counters.
-- Re-enabling resumes from retained lifetime usage.
-- Database backups include both plugin tables through the normal Discourse
+- Re-enabling resumes from retained monthly usage and carryover.
+- Database backups include all plugin tables through the normal Discourse
   backup process.
 
 ## License

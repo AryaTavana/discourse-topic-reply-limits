@@ -11,12 +11,22 @@ module DiscourseTopicReplyLimits
       rules = Rule.for_user_and_topic(user, topic.id)
       return if rules.empty?
 
-      reply_count = Usage.count_for(user:, topic:)
-      assignments = rules.map { |rule| assignment_for(rule, reply_count) }
+      at = Time.zone.now
+      usages = Usage.current_for_rules!(user:, topic:, rules:, at:)
+      assignments =
+        rules.filter_map do |rule|
+          usage = usages[rule.group_id]
+          assignment_for(usage) if usage
+        end
+      return if assignments.empty?
+
+      next_credit_at = Calendar.next_credit_at(Calendar.period_start(at))
 
       {
         reached: assignments.any? { |assignment| assignment[:reached] },
-        reply_count:,
+        reply_count: assignments.map { |assignment| assignment[:reply_count] }.max,
+        period_start: Calendar.period_start(at),
+        next_credit_at:,
         assignments:,
         warnings: assignments.select { |assignment| assignment[:warning] }
       }
@@ -26,19 +36,24 @@ module DiscourseTopicReplyLimits
       self.for(user:, topic:)&.fetch(:reached, false) || false
     end
 
-    def self.assignment_for(rule, reply_count)
-      warning_at = (rule.reply_limit * rule.warning_percentage + 99) / 100
-      remaining = [rule.reply_limit - reply_count, 0].max
-      reached = reply_count >= rule.reply_limit
+    def self.assignment_for(usage)
+      total_allowance = usage.total_allowance
+      warning_at =
+        (total_allowance * usage.warning_percentage + 99) / 100
+      remaining = usage.remaining
+      reached = remaining.zero?
 
       {
-        reply_limit: rule.reply_limit,
-        warning_percentage: rule.warning_percentage,
+        reply_limit: usage.monthly_allowance,
+        monthly_reply_limit: usage.monthly_allowance,
+        carried_in: usage.carried_in,
+        total_allowance:,
+        warning_percentage: usage.warning_percentage,
         warning_at:,
-        reply_count:,
+        reply_count: usage.reply_count,
         remaining:,
         reached:,
-        warning: !reached && reply_count >= warning_at
+        warning: !reached && usage.reply_count >= warning_at
       }
     end
 

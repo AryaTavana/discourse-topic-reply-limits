@@ -1,10 +1,10 @@
 en:
   site_settings:
-    topic_reply_limits_enabled: "Enable per-topic, per-group reply limits."
+    topic_reply_limits_enabled: "Enable monthly per-topic, per-group reply allowances with carryover."
   discourse_topic_reply_limits:
     errors:
       invalid_groups: "One or more selected groups do not exist."
-      limit_reached: "You have reached your reply limit for this topic."
+      limit_reached: "You have used all replies available for this topic this month. Your next monthly allowance is added next month if you remain eligible."
   errors:
     messages:
       duplicate_groups: "must not contain the same group more than once"

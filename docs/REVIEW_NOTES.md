@@ -1,58 +1,57 @@
-# Senior review record
+# Senior review record for 1.1
 
-Three implementation review passes were performed against the latest stable
-Discourse checkout.
+Three improvement passes were performed against the current Discourse checkout.
 
-## Pass 1 — architecture, database, and concurrency
+## Pass 1 — accounting and concurrency
 
-Reviewed rule/usage ownership, reply lifecycle hooks, soft deletion, schema
-constraints, counter backfill, and concurrent first replies.
-
-Improvements made:
-
-- replaced unsafe first-row-only locking with a transaction-scoped PostgreSQL
-  advisory lock plus row lock;
-- kept the increment in the same transaction as post creation so failure rolls
-  both back;
-- guarded enforcement and serialization with the enable setting;
-- corrected automatic/pseudogroup matching through `User#in_any_groups?`;
-- corrected serializer and route constants found by booting the real app;
-- verified unique indexes and database check constraints after migration.
-
-## Pass 2 — compatibility, performance, and UX
-
-Reviewed Glimmer/FormKit structure, route resolution, topic/group selectors,
-responsive table markup, warning updates, composer state, error handling, query
-shape, and plugin disable/restore behavior.
+Reviewed rollover arithmetic, calendar boundaries, first-use backfill, deletion,
+rule recreation, multiple groups, subscription gaps, and concurrent replies.
 
 Improvements made:
 
-- corrected FormKit validation syntax and yielded-block usage;
-- corrected plugin module imports and selected-topic tracking;
-- verified all frontend modules with a full Rolldown production build;
-- limited client-side increments to replies in the loaded topic;
-- added create/update success feedback and explicit destructive confirmation;
-- made lifetime usage continue independently of temporary group changes once a
-  topic is governed, while keeping staff enforcement bypassed.
+- replaced the lifetime counter with immutable rule snapshots, membership
+  intervals, and monthly group/topic usage rows;
+- used half-open membership boundaries so removal exactly at a UTC month boundary
+  does not earn that month;
+- froze rather than erased balances during inactive subscription months;
+- retained the user/topic advisory lock across all matching group checks and
+  increments, plus a separate membership-transition lock;
+- reconciled stored usage upward from deleted-inclusive post history.
 
-## Pass 3 — security and integration boundaries
+## Pass 2 — performance and UX
 
-Reviewed privileged routes, IDOR exposure, CSRF/API authentication, nested input
-validation, DOM injection/navigation sinks, secrets, SQL binding, guardian
-checks, auditability, and Django-to-Discourse trust boundaries.
+Reviewed lazy accrual query shape, long-lived rules, open-page rollover, warning
+clarity, dark/light theme contrast, and mobile layout.
 
 Improvements made:
 
-- retained admin enforcement at route, controller, and service-policy layers;
-- retained guardian checks on the current-user status endpoint and exposed no
-  arbitrary user lookup;
-- added granular API-key scopes for reading and managing rule sets;
-- verified the frontend uses escaped Glimmer bindings and contains no direct DOM
-  HTML/code-execution sinks or embedded secrets;
-- kept advisory-lock SQL parameterized;
-- documented dedicated credentials, HTTPS, reconciliation, expiry-boundary, and
-  future signed/idempotent entitlement-period requirements for Django.
+- batched membership intervals and historical post aggregates instead of issuing
+  repeated queries for each missed month;
+- stored monthly rule values so later edits cannot produce inconsistent lazy
+  backfills;
+- added the new allowance, carried amount, remaining amount, rollover policy,
+  and localized next-credit date to user notices;
+- added a bounded timer and guardian-checked status refresh so an open topic
+  re-enables correctly after the calendar boundary;
+- clarified all admin labels as monthly allowances and explained UTC/carryover.
 
-No time-based reset was added. The absence of a stable cross-system entitlement
-period identifier makes an inferred reset less correct and less secure than the
-lifetime behavior requested for this version.
+## Pass 3 — security, migration, and compatibility
+
+Reviewed privileged routes, arbitrary-user exposure, SQL inputs, overflow,
+orphan cleanup, migration rollback, SSO/API membership paths, Ember imports, and
+production asset compilation.
+
+Improvements made:
+
+- kept admin authorization at route/controller/service layers and current-user
+  guardian authorization on status refresh;
+- used bigint allowance/carry/usage columns, unique indexes, partial active-
+  membership uniqueness, and database check constraints;
+- covered both direct `GroupUser` callbacks and bulk GroupManager events
+  idempotently;
+- preserved legacy lifetime rows instead of destructively converting an
+  ambiguous total into a month;
+- retained parameter binding for all dynamic SQL and exposed no group/rule/user
+  IDs in user state;
+- verified ESLint, Stylelint, Prettier, the full frontend production bundle, and
+  production asset precompilation before release.

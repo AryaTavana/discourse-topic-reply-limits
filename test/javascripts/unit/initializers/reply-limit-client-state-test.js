@@ -18,6 +18,9 @@ module("Unit | Initializer | reply-limit-client-state", function () {
         {
           rule_id: 1,
           reply_limit: 5,
+          monthly_reply_limit: 5,
+          carried_in: 0,
+          total_allowance: 5,
           warning_at: 4,
           reply_count: 3,
           remaining: 2,
@@ -39,6 +42,9 @@ module("Unit | Initializer | reply-limit-client-state", function () {
           {
             rule_id: 1,
             reply_limit: 5,
+            monthly_reply_limit: 5,
+            carried_in: 0,
+            total_allowance: 5,
             warning_at: 4,
             reply_count: 4,
             remaining: 1,
@@ -50,6 +56,9 @@ module("Unit | Initializer | reply-limit-client-state", function () {
           {
             rule_id: 1,
             reply_limit: 5,
+            monthly_reply_limit: 5,
+            carried_in: 0,
+            total_allowance: 5,
             warning_at: 4,
             reply_count: 4,
             remaining: 1,
@@ -71,6 +80,9 @@ module("Unit | Initializer | reply-limit-client-state", function () {
         {
           rule_id: 1,
           reply_limit: 5,
+          monthly_reply_limit: 5,
+          carried_in: 0,
+          total_allowance: 5,
           warning_at: 4,
           reply_count: 4,
           remaining: 1,
@@ -80,6 +92,9 @@ module("Unit | Initializer | reply-limit-client-state", function () {
         {
           rule_id: 2,
           reply_limit: 20,
+          monthly_reply_limit: 20,
+          carried_in: 0,
+          total_allowance: 20,
           warning_at: 16,
           reply_count: 4,
           remaining: 16,

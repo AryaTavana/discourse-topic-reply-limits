@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0
+
+- Change reply limits from lifetime quotas to UTC calendar-month allowances.
+- Carry every unused reply into the next eligible month without a cap.
+- Track subscription-group membership intervals so inactive months receive no
+  credit while previously earned balances remain frozen.
+- Snapshot rule values by month; administrator edits apply to the next monthly
+  credit instead of changing an allowance already granted.
+- Show monthly allowance, carryover, remaining replies, and the next credit date
+  in accessible warning and reached-limit notices.
+- Refresh open topic pages automatically when the next allowance is credited.
+- Preserve the former lifetime table untouched while monthly usage is
+  rebuilt from current-month posts, including deleted posts.
+
 ## 1.0.5
 
 - Redesign warning and reached-limit notices with high-contrast, theme-aware

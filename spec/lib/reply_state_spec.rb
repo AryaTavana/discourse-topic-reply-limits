@@ -10,6 +10,26 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
     group.add(user)
   end
 
+  def create_usage(
+    target_group: group,
+    monthly_allowance:,
+    reply_count:,
+    carried_in: 0,
+    warning_percentage: 80,
+    period_start: DiscourseTopicReplyLimits::Calendar.period_start
+  )
+    DiscourseTopicReplyLimits::Usage.create!(
+      user:,
+      topic:,
+      group: target_group,
+      period_start:,
+      monthly_allowance:,
+      warning_percentage:,
+      carried_in:,
+      reply_count:
+    )
+  end
+
   describe ".for" do
     it "returns the warning state at the configured threshold" do
       DiscourseTopicReplyLimits::Rule.create!(
@@ -18,15 +38,22 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
         reply_limit: 20,
         warning_percentage: 80
       )
-      DiscourseTopicReplyLimits::Usage.create!(user:, topic:, reply_count: 16)
+      create_usage(monthly_allowance: 20, reply_count: 16)
 
       state = described_class.for(user:, topic:)
 
-      expect(state).to include(reached: false, reply_count: 16)
+      expect(state).to include(
+        reached: false,
+        reply_count: 16,
+        next_credit_at: be_present
+      )
       expect(state[:warnings]).to eq(
         [
           {
             reply_limit: 20,
+            monthly_reply_limit: 20,
+            carried_in: 0,
+            total_allowance: 20,
             warning_percentage: 80,
             warning_at: 16,
             reply_count: 16,
@@ -38,24 +65,28 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
       )
     end
 
-    it "rounds fractional warning thresholds up" do
+    it "calculates warnings against the allowance plus carryover" do
       DiscourseTopicReplyLimits::Rule.create!(
         topic:,
         group:,
-        reply_limit: 7,
+        reply_limit: 5,
         warning_percentage: 80
       )
-      DiscourseTopicReplyLimits::Usage.create!(user:, topic:, reply_count: 5)
-
-      before_threshold = described_class.for(user:, topic:)
-      DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).update!(
+      create_usage(
+        monthly_allowance: 5,
+        carried_in: 2,
         reply_count: 6
       )
-      at_threshold = described_class.for(user:, topic:)
 
-      expect(before_threshold[:warnings]).to be_empty
-      expect(at_threshold[:warnings]).to contain_exactly(
-        include(warning_at: 6, remaining: 1)
+      state = described_class.for(user:, topic:)
+
+      expect(state[:warnings]).to contain_exactly(
+        include(
+          total_allowance: 7,
+          warning_at: 6,
+          remaining: 1,
+          carried_in: 2
+        )
       )
     end
 
@@ -66,7 +97,11 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
         reply_limit: 2,
         warning_percentage: 50
       )
-      DiscourseTopicReplyLimits::Usage.create!(user:, topic:, reply_count: 2)
+      create_usage(
+        monthly_allowance: 2,
+        reply_count: 2,
+        warning_percentage: 50
+      )
 
       state = described_class.for(user:, topic:)
 
@@ -92,7 +127,12 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
         reply_limit: 20,
         warning_percentage: 80
       )
-      DiscourseTopicReplyLimits::Usage.create!(user:, topic:, reply_count: 5)
+      create_usage(monthly_allowance: 5, reply_count: 5)
+      create_usage(
+        target_group: second_group,
+        monthly_allowance: 20,
+        reply_count: 5
+      )
 
       state = described_class.for(user:, topic:)
 
@@ -132,14 +172,14 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
   end
 
   describe ".reached?" do
-    it "returns true at the reply limit" do
+    it "returns true at the current monthly allowance" do
       DiscourseTopicReplyLimits::Rule.create!(
         topic:,
         group:,
         reply_limit: 1,
         warning_percentage: 80
       )
-      DiscourseTopicReplyLimits::Usage.create!(user:, topic:, reply_count: 1)
+      create_usage(monthly_allowance: 1, reply_count: 1)
 
       expect(described_class.reached?(user:, topic:)).to eq(true)
     end

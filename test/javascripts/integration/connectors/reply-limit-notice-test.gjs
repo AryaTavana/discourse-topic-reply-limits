@@ -16,8 +16,14 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
             model=(hash
               reply_limit=(hash
                 reached=false
+                next_credit_at="2026-08-01T00:00:00.000Z"
                 warnings=(array
-                  (hash warning_percentage=80 remaining=4)
+                  (hash
+                    warning_percentage=80
+                    remaining=4
+                    monthly_reply_limit=20
+                    carried_in=3
+                  )
                 )
               )
             )
@@ -37,6 +43,10 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
       .hasText(
         i18n("discourse_topic_reply_limits.remaining", { count: 4 })
       );
+    assert
+      .dom(".topic-reply-limits-notice.--warning")
+      .includesText("20")
+      .includesText("3");
   });
 
   test("renders an assertive reached-limit alert", async function (assert) {
@@ -44,7 +54,13 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
       <template>
         <ReplyLimitNotice
           @outletArgs={{hash
-            model=(hash reply_limit=(hash reached=true warnings=(array)))
+            model=(hash
+              reply_limit=(hash
+                reached=true
+                next_credit_at="2026-08-01T00:00:00.000Z"
+                warnings=(array)
+              )
+            )
           }}
         />
       </template>
@@ -57,7 +73,7 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
       .dom(".topic-reply-limits-notice__title")
       .hasText(i18n("discourse_topic_reply_limits.reached_title"));
     assert
-      .dom(".topic-reply-limits-notice__message")
+      .dom(".topic-reply-limits-notice__message:first-of-type")
       .hasText(i18n("discourse_topic_reply_limits.reached"));
   });
 });

@@ -40,6 +40,11 @@ RSpec.describe DiscourseTopicReplyLimits::RuleSet::Destroy do
         DiscourseTopicReplyLimits::Usage.create!(
           user: Fabricate(:user),
           topic:,
+          group:,
+          period_start: DiscourseTopicReplyLimits::Calendar.period_start,
+          monthly_allowance: 5,
+          warning_percentage: 80,
+          carried_in: 2,
           reply_count: 3
         )
 

@@ -30,8 +30,15 @@ RSpec.describe PostsController do
          }
   end
 
+  def current_usage(target_user: user)
+    DiscourseTopicReplyLimits::Usage
+      .where(user: target_user, topic:, group:)
+      .order(period_start: :desc)
+      .first
+  end
+
   describe "#create" do
-    it "allows replies through the limit and blocks the next reply" do
+    it "allows replies through the monthly allowance and blocks the next reply" do
       create_rule(reply_limit: 2)
 
       create_reply(1)
@@ -44,12 +51,10 @@ RSpec.describe PostsController do
       expect(response.parsed_body["errors"]).to include(
         I18n.t("discourse_topic_reply_limits.errors.limit_reached")
       )
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).reply_count
-      ).to eq(2)
+      expect(current_usage.reply_count).to eq(2)
     end
 
-    it "disables topic replies after the limit is reached" do
+    it "disables topic replies after the allowance is used" do
       create_rule(reply_limit: 1)
       create_reply(1)
 
@@ -59,7 +64,8 @@ RSpec.describe PostsController do
       expect(response.parsed_body["details"]["can_create_post"]).to eq(false)
       expect(response.parsed_body["reply_limit"]).to include(
         "reached" => true,
-        "reply_count" => 1
+        "reply_count" => 1,
+        "next_credit_at" => be_present
       )
     end
 
@@ -88,9 +94,7 @@ RSpec.describe PostsController do
       create_reply(3)
 
       expect(response.status).to eq(422)
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).reply_count
-      ).to eq(2)
+      expect(current_usage.reply_count).to eq(2)
     end
 
     it "does not increment usage when a reply is edited" do
@@ -108,32 +112,28 @@ RSpec.describe PostsController do
           }
 
       expect(response.status).to eq(200)
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).reply_count
-      ).to eq(1)
+      expect(current_usage.reply_count).to eq(1)
 
       create_reply(2)
       create_reply(3)
       expect(response.status).to eq(422)
     end
 
-    it "backfills historical replies before allowing a new reply" do
+    it "backfills replies already created in the current month" do
       create_reply(1)
-      expect(DiscourseTopicReplyLimits::Usage.find_by(user:, topic:)).to be_nil
+      expect(current_usage).to be_nil
       create_rule(reply_limit: 2)
 
       create_reply(2)
 
       expect(response.status).to eq(200)
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).reply_count
-      ).to eq(2)
+      expect(current_usage.reply_count).to eq(2)
 
       create_reply(3)
       expect(response.status).to eq(422)
     end
 
-    it "counts deleted historical replies when creating usage" do
+    it "counts deleted historical replies when creating monthly usage" do
       create_reply(1)
       historical_reply = Post.find(response.parsed_body["id"])
       PostDestroyer.new(
@@ -151,7 +151,7 @@ RSpec.describe PostsController do
       ).to be_present
     end
 
-    it "bypasses all rules for staff" do
+    it "bypasses all rules and accounting for staff" do
       sign_in(admin)
       create_rule(reply_limit: 1, target_user: admin)
 
@@ -160,15 +160,10 @@ RSpec.describe PostsController do
       create_reply(2)
 
       expect(response.status).to eq(200)
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(
-          user: admin,
-          topic:
-        ).reply_count
-      ).to eq(2)
+      expect(current_usage(target_user: admin)).to be_nil
     end
 
-    it "counts replies before a user joins a limited group" do
+    it "counts current-month replies from before a user joins a limited group" do
       group.remove(user)
       user.reload
       DiscourseTopicReplyLimits::Rule.create!(
@@ -180,15 +175,17 @@ RSpec.describe PostsController do
 
       create_reply(1)
       create_reply(2)
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).reply_count
-      ).to eq(2)
+      expect(current_usage).to be_nil
 
       group.add(user)
       user.reload
+      expect(
+        DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+      ).to include(reached: true, reply_count: 2)
       create_reply(3)
 
       expect(response.status).to eq(422)
+      expect(current_usage.reply_count).to eq(2)
       expect(response.parsed_body["errors"]).to include(
         I18n.t("discourse_topic_reply_limits.errors.limit_reached")
       )
@@ -202,9 +199,70 @@ RSpec.describe PostsController do
       create_reply(2)
 
       expect(response.status).to eq(200)
-      expect(
-        DiscourseTopicReplyLimits::Usage.find_by(user:, topic:).reply_count
-      ).to eq(1)
+      expect(current_usage.reply_count).to eq(1)
+    end
+
+    it "adds the monthly allowance and carries unused replies forward" do
+      create_rule(reply_limit: 2)
+      create_reply(1)
+
+      next_month =
+        DiscourseTopicReplyLimits::Calendar.next_credit_at(
+          DiscourseTopicReplyLimits::Calendar.period_start
+        ) + 1.day
+
+      freeze_time(next_month) do
+        state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+        expect(state[:assignments]).to contain_exactly(
+          include(
+            monthly_reply_limit: 2,
+            carried_in: 1,
+            total_allowance: 3,
+            reply_count: 0,
+            remaining: 3
+          )
+        )
+
+        3.times do |index|
+          create_reply(index + 2)
+          expect(response.status).to eq(200)
+        end
+        create_reply(5)
+        expect(response.status).to eq(422)
+      end
+    end
+
+    it "does not grant allowances for months outside the subscription group" do
+      create_rule(reply_limit: 2)
+      create_reply(1)
+      group.remove(user)
+      user.reload
+
+      return_month =
+        DiscourseTopicReplyLimits::Calendar.next_credit_at(
+          DiscourseTopicReplyLimits::Calendar.period_start
+        ).next_month + 1.day
+
+      freeze_time(return_month) do
+        group.add(user)
+        user.reload
+        state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+
+        expect(state[:assignments]).to contain_exactly(
+          include(
+            monthly_reply_limit: 2,
+            carried_in: 1,
+            total_allowance: 3
+          )
+        )
+        expect(
+          DiscourseTopicReplyLimits::Usage.where(
+            user:,
+            topic:,
+            group:
+          ).count
+        ).to eq(2)
+      end
     end
   end
 end

@@ -1,3 +1,4 @@
+import dFormatDate from "discourse/ui-kit/helpers/d-format-date";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 import { i18n } from "discourse-i18n";
 
@@ -18,6 +19,19 @@ export default <template>
         </strong>
         <span class="topic-reply-limits-notice__message">
           {{i18n "discourse_topic_reply_limits.reached"}}
+        </span>
+        <span class="topic-reply-limits-notice__message">
+          {{i18n
+            "discourse_topic_reply_limits.next_credit"
+            date=(dFormatDate
+              @outletArgs.model.reply_limit.next_credit_at
+              format="medium"
+              noTitle=true
+            )
+          }}
+        </span>
+        <span class="topic-reply-limits-notice__detail">
+          {{i18n "discourse_topic_reply_limits.rollover_explanation"}}
         </span>
       </div>
     </div>
@@ -48,6 +62,26 @@ export default <template>
               count=warning.remaining
             }}
           </strong>
+          <span class="topic-reply-limits-notice__detail">
+            {{i18n
+              "discourse_topic_reply_limits.allowance_breakdown"
+              monthly=warning.monthly_reply_limit
+              carried=warning.carried_in
+            }}
+          </span>
+          <span class="topic-reply-limits-notice__detail">
+            {{i18n "discourse_topic_reply_limits.rollover_explanation"}}
+          </span>
+          <span class="topic-reply-limits-notice__detail">
+            {{i18n
+              "discourse_topic_reply_limits.next_credit"
+              date=(dFormatDate
+                @outletArgs.model.reply_limit.next_credit_at
+                format="medium"
+                noTitle=true
+              )
+            }}
+          </span>
         </div>
       </div>
     {{/each}}

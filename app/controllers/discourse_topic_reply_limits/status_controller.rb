@@ -11,7 +11,13 @@ module DiscourseTopicReplyLimits
       raise Discourse::NotFound if topic.blank?
 
       guardian.ensure_can_see!(topic)
-      render json: { reply_limit: ReplyState.for(user: current_user, topic:) }
+      state = ReplyState.for(user: current_user, topic:)
+      render json: {
+               reply_limit: state,
+               can_create_post:
+                 guardian.can_create?(Post, topic) &&
+                   !state&.fetch(:reached, false)
+             }
     end
   end
 end

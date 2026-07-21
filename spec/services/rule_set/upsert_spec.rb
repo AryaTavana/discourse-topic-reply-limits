@@ -31,6 +31,13 @@ RSpec.describe DiscourseTopicReplyLimits::RuleSet::Upsert do
           .order(:group_id)
           .pluck(:group_id, :reply_limit, :warning_percentage)
       ).to contain_exactly([group.id, 5, 80], [second_group.id, 20, 75])
+      expect(
+        DiscourseTopicReplyLimits::RulePeriod.where(topic_id: topic.id).pluck(
+          :group_id,
+          :reply_limit,
+          :warning_percentage
+        )
+      ).to contain_exactly([group.id, 5, 80], [second_group.id, 20, 75])
     end
 
     it "updates assignments and removes omitted groups" do
@@ -69,6 +76,42 @@ RSpec.describe DiscourseTopicReplyLimits::RuleSet::Upsert do
           :warning_percentage
         )
       ).to contain_exactly([group.id, 10, 90], [replacement_group.id, 30, 70])
+      expect(
+        DiscourseTopicReplyLimits::RulePeriod.find_by(
+          topic_id: topic.id,
+          group_id: group.id,
+          period_start: DiscourseTopicReplyLimits::Calendar.period_start
+        )
+      ).to have_attributes(reply_limit: 2, warning_percentage: 50)
+
+      updated_rule =
+        DiscourseTopicReplyLimits::Rule.find_by(topic:, group:)
+      next_period =
+        DiscourseTopicReplyLimits::Calendar.next_period(
+          DiscourseTopicReplyLimits::Calendar.period_start
+        )
+      DiscourseTopicReplyLimits::RulePeriod.ensure_through!(
+        rule: updated_rule,
+        through: next_period
+      )
+      expect(
+        DiscourseTopicReplyLimits::RulePeriod.find_by(
+          topic_id: topic.id,
+          group_id: group.id,
+          period_start: next_period
+        )
+      ).to have_attributes(reply_limit: 10, warning_percentage: 90)
+    end
+
+    it "bootstraps current membership periods for subscription groups" do
+      group.add(Fabricate(:user))
+
+      expect { result }.to change {
+        DiscourseTopicReplyLimits::MembershipPeriod.where(
+          group_id: group.id,
+          ends_at: nil
+        ).count
+      }.by(1)
     end
 
     it "rejects duplicate groups" do

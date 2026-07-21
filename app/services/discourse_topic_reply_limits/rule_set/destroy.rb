@@ -43,6 +43,7 @@ module DiscourseTopicReplyLimits
       end
 
       def destroy_rules(rules:)
+        rules.each { |rule| RulePeriod.ensure_through!(rule:) }
         rules.destroy_all
       end
     end

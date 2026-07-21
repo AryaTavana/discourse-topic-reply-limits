@@ -1,106 +1,75 @@
 # NEoWaveChart Django integration review
 
-This decision record reflects the subscription code reviewed before implementing
-the plugin. No Django source was modified.
+No Django source was modified.
 
-## Current entitlement model
+## Subscription model reviewed
 
-`Marketplace.models.Subscription` stores an independent row per purchase with:
+`Marketplace.models.Subscription` stores an independent purchase row with a
+start, optional end, active/expired/pending status, a forum-access snapshot, and
+one tier snapshot (`general`, `advanced`, `master`, or `elite`). Product
+durations use true calendar-month/calendar-year arithmetic.
 
-- `start_date`, nullable `end_date`, and `active`/`expired`/`pending` status;
-- a `forum_access` snapshot;
-- one forum tier snapshot: `none`, `general`, `advanced`, `master`, or `elite`.
+A daily task expires subscriptions whose end has passed. New purchases create
+new subscription rows; there is no shared immutable billing-cycle or renewal
+chain sent to Discourse.
 
-Duration-based purchases calculate calendar-month/calendar-year expiry and
-create a new subscription row. There is no immutable renewal-chain or billing
-period identifier shared with Discourse.
+## Existing Discourse communication
 
-Active access requires active status, a started subscription, and no past end
-date. A daily task updates subscription status, and the Discourse synchronization
-task invokes that expiry update again before syncing.
-
-## Current Discourse communication
-
-The Django site uses DiscourseConnect SSO with HMAC verification and sends the
-external Django user ID, account data, staff flags, and group additions/removals.
-
-Forum tier precedence is resolved in Django. From all active forum subscriptions,
-the highest tier is selected and exactly one of these groups is emitted:
+Django's HMAC-verified DiscourseConnect flow sends the Django user ID, account
+data, staff flags, and group additions/removals. Django resolves overlapping
+active subscriptions to the highest forum tier and emits exactly one of:
 
 - `forum_general`
 - `forum_advanced`
 - `forum_master`
 - `forum_elite`
 
-Superusers and staff map to Discourse admin/moderator status and their managed
-groups. Users without an extra forum/forecast entitlement receive `base`.
+An hourly Celery reconciliation uses the Discourse API to add and remove all
+managed groups after updating expiration state. Users without an extra forum
+entitlement receive `base`.
 
-In addition to login-time SSO synchronization, an hourly Celery task uses the
-Discourse API to add and remove every managed group. It uses a cache lock,
-bounded HTTP timeouts, and the configured `Api-Key`/`Api-Username` headers.
+## Production decision
 
-## Production decision for v1
+Use UTC calendar months and the existing group boundary. No new Django endpoint
+is required.
 
-Use lifetime reply counts per user/topic. Do not reset at subscription renewal
-and do not copy subscription expiration timestamps into Discourse rules.
+- Django remains authoritative for whether the subscriber is eligible and which
+  tier group applies.
+- Discourse observes group intervals, grants only eligible calendar months, and
+  remains authoritative for committed reply transactions and carryover.
+- Removing a group freezes its earned balance and stops monthly credits.
+- Re-adding it restores the balance and credits the current calendar month once.
+- A tier change closes one group ledger and opens another; balances are not
+  combined because each configured group has its own independent rule.
 
-Reasons:
+This avoids sending consumption state to Django, avoids a second shared secret,
+and keeps enforcement atomic with post creation. It also avoids awarding months
+that elapsed while an expired subscriber was absent from the group.
 
-1. The requested base behavior defines a total created-reply counter.
-2. Group membership already changes promptly through SSO and hourly API sync.
-3. A purchase row is not yet a stable cross-system entitlement period. Inferring
-   resets from `end_date`, group removal, or group re-addition would allow
-   accidental resets during sync failures, upgrades, overlapping purchases, or
-   tier changes.
-4. Discourse is the only authoritative source for whether a reply transaction
-   committed, was rejected, or was later deleted.
+## Why this is not a subscription-renewal reset
 
-Django therefore remains authoritative for **who belongs to a tier**. Discourse
-is authoritative for **topic rules and consumed replies**.
+The requested policy says "each month" and "next month", so a UTC calendar month
+is explicit and deterministic. The current Django data does not provide a stable
+cross-system renewal-period identifier. Inferring one from an end date, a brief
+group-sync failure, or overlapping purchases could duplicate or erase credit.
 
-## Recommended future renewable-period design
+If the product later changes to billing-anniversary allowances, add an immutable
+Django entitlement-period UUID and deliver it to a narrow authenticated,
+idempotent plugin endpoint. Preserve old period ledgers, record Django event IDs,
+and explicitly define upgrade/downgrade behavior. Do not overload group sync with
+an inferred reset.
 
-If the product requirement later becomes "N replies per topic per paid period,"
-make the period explicit rather than time-derived:
+## API use
 
-1. Add an immutable Django entitlement/period UUID. Link renewals and upgrades
-   to a well-defined active period according to the business policy.
-2. Send the current period key to Discourse through a narrow, authenticated,
-   idempotent integration endpoint. Do not expose it as a browser-controlled SSO
-   field without server verification.
-3. Add `entitlement_key` (or a referenced entitlement table) to usage and change
-   uniqueness to `(user_id, topic_id, entitlement_key)`.
-4. Preserve old periods for audit/reporting. A new period selects a new counter;
-   it does not zero or overwrite history.
-5. Define upgrades explicitly: either preserve the same period and only change
-   group/limit, or start a new period. The billing system must decide; the plugin
-   must not guess.
-6. Make delivery idempotent and signed, record the Django event ID, and reconcile
-   periodically. Group sync and entitlement-period sync should remain separate
-   operations.
-
-This lets renewal resets be deterministic while retaining Discourse's
-transactional reply accounting.
-
-## API use today
-
-Django may manage topic rule sets through the plugin's administrator endpoints,
-using its existing server-to-server Discourse client. Use a dedicated Discourse
-API key with the plugin's granular `topic_reply_limits` rule scopes and a
-dedicated administrator acting account. Do not write PostgreSQL rows directly.
-
-Rules do not need to be re-sent for every subscription change: Django's existing
-group synchronization automatically changes which rule applies. The four tier
-rules can be configured once per topic in Discourse Admin or idempotently updated
-through the rule-set API.
+Django may manage topic rule sets through the existing administrator JSON API
+using a dedicated Discourse API key with only the plugin's `read_rules` and/or
+`manage_rules` scopes. Rule sets do not need to be resent on every subscription
+change because the existing group synchronization changes eligibility.
 
 Operational recommendations:
 
-- require HTTPS and keep API/SSO secrets outside source control;
+- require HTTPS and keep SSO/API secrets outside source control;
 - alert on missing managed groups and partial synchronization failures;
-- avoid sending all usernames in a single unbounded API request as the user base
-  grows—batch or reconcile incrementally;
-- keep the hourly reconciliation as a safety net even when SSO login updates a
-  user immediately;
-- align the exact expiration boundary (`<= now` versus `>= now`) in one shared
-  Django entitlement predicate to avoid edge-time ambiguity.
+- retain hourly reconciliation even though login-time SSO also updates groups;
+- batch large membership reconciliations;
+- align Django's exact expiration boundary in one shared entitlement predicate.

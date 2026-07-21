@@ -40,6 +40,12 @@
     color: var(--primary);
   }
 
+  &__detail {
+    margin-top: 0.2em;
+    color: var(--primary-high);
+    font-size: var(--font-down-1);
+  }
+
   &__remaining {
     margin-block-start: 0.15em;
     color: var(--primary);
