@@ -4,7 +4,7 @@ en:
   discourse_topic_reply_limits:
     errors:
       invalid_groups: "One or more selected groups do not exist."
-      limit_reached: "You have used all replies available for this topic this month. Your next monthly allowance is added next month if you remain eligible."
+      limit_reached: "You have used all replies available for this topic this month. Your next monthly allowance is added next month if your subscription remains active. Expired subscriptions lose all available and carried replies; a new subscription starts fresh."
   errors:
     messages:
       duplicate_groups: "must not contain the same group more than once"

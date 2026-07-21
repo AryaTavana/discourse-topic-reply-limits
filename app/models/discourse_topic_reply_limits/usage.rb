@@ -50,7 +50,7 @@ module DiscourseTopicReplyLimits
 
     def self.with_locked_current_for_rules!(user:, topic:, rules:, at: Time.zone.now)
       transaction do
-        acquire_transaction_lock(user_id: user.id, topic_id: topic.id)
+        acquire_user_topic_lock!(user_id: user.id, topic_id: topic.id)
         rows =
           rules.to_h do |rule|
             [rule.group_id, materialize_current!(user:, topic:, rule:, at:)]
@@ -61,7 +61,9 @@ module DiscourseTopicReplyLimits
 
     def self.materialize_current!(user:, topic:, rule:, at:)
       current_period = Calendar.period_start(at)
-      MembershipPeriod.ensure_current!(user:, group: rule.group)
+      membership = MembershipPeriod.ensure_current!(user:, group: rule.group)
+      return unless membership
+
       RulePeriod.ensure_through!(rule:, through: current_period)
 
       previous =
@@ -75,12 +77,16 @@ module DiscourseTopicReplyLimits
           .where("period_start <= ?", current_period)
           .order(:period_start)
       snapshots = snapshots.where("period_start > ?", previous.period_start) if previous
-      snapshots = eligible_snapshots(user:, rule:, snapshots: snapshots.to_a)
+      snapshots = eligible_snapshots(
+        membership:,
+        snapshots: snapshots.to_a
+      )
       historical_stats =
         historical_reply_stats_by_period(
           user:,
           topic:,
-          period_starts: snapshots.map(&:period_start)
+          period_starts: snapshots.map(&:period_start),
+          membership_started_at: membership.starts_at
         )
 
       snapshots.each do |snapshot|
@@ -109,7 +115,8 @@ module DiscourseTopicReplyLimits
           historical_reply_stats_by_period(
             user:,
             topic:,
-            period_starts: [current_period]
+            period_starts: [current_period],
+            membership_started_at: membership.starts_at
           ).fetch(current_period, [0, nil])
         end
       if historical_count > previous.reply_count
@@ -121,30 +128,30 @@ module DiscourseTopicReplyLimits
       previous
     end
 
-    def self.eligible_snapshots(user:, rule:, snapshots:)
-      intervals =
-        MembershipPeriod.where(user_id: user.id, group_id: rule.group_id).to_a
+    def self.eligible_snapshots(membership:, snapshots:)
       snapshots.select do |snapshot|
         period_start = Calendar.period_time(snapshot.period_start)
         period_end = Calendar.next_credit_at(snapshot.period_start)
-        intervals.any? do |interval|
-          interval.starts_at < period_end &&
-            (
-              interval.ends_at.nil? ||
-                (
-                  interval.ends_at > period_start &&
-                    interval.ends_at > interval.starts_at
-                )
-            )
-        end
+        membership.starts_at < period_end &&
+          (
+            membership.ends_at.nil? ||
+              membership.ends_at > period_start
+          )
       end
     end
 
-    def self.historical_reply_stats_by_period(user:, topic:, period_starts:)
+    def self.historical_reply_stats_by_period(
+      user:,
+      topic:,
+      period_starts:,
+      membership_started_at:
+    )
       return {} if period_starts.empty?
 
       period_sql =
         Arel.sql("DATE_TRUNC('month', posts.created_at)::date")
+      range_start =
+        [Calendar.period_time(period_starts.min), membership_started_at].max
       rows =
         Post
         .with_deleted
@@ -156,9 +163,7 @@ module DiscourseTopicReplyLimits
         .where.not(post_number: 1)
         .where(
           created_at:
-            Calendar.period_time(period_starts.min)...Calendar.next_credit_at(
-              period_starts.max
-            )
+            range_start...Calendar.next_credit_at(period_starts.max)
         )
         .group(period_sql)
         .pluck(period_sql, Arel.sql("COUNT(*)"), Arel.sql("MAX(posts.created_at)"))
@@ -168,7 +173,7 @@ module DiscourseTopicReplyLimits
       end
     end
 
-    def self.acquire_transaction_lock(user_id:, topic_id:)
+    def self.acquire_user_topic_lock!(user_id:, topic_id:)
       key =
         Digest::SHA256.digest(
           "topic-reply-limits:#{topic_id}:#{user_id}"
@@ -178,7 +183,6 @@ module DiscourseTopicReplyLimits
 
     private_class_method :materialize_current!,
                          :eligible_snapshots,
-                         :historical_reply_stats_by_period,
-                         :acquire_transaction_lock
+                         :historical_reply_stats_by_period
   end
 end

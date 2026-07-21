@@ -6,7 +6,8 @@ en:
       warning_title: "Monthly reply allowance warning"
       warning_usage: "You have reached %{percentage}% of the replies available for this topic this month."
       allowance_breakdown: "Available this month: %{monthly} new + %{carried} carried over."
-      rollover_explanation: "Unused replies are saved and carried into your next eligible month."
+      rollover_explanation: "Unused replies carry into the next month only while your subscription remains active."
+      subscription_reset_explanation: "If your subscription expires, all available and carried replies are removed. A new subscription starts with a fresh allowance."
       next_credit: "If you remain in an eligible group, your next monthly allowance will be added %{date}."
       remaining:
         one: "%{count} reply remaining"
@@ -33,7 +34,7 @@ en:
           topic: "Topic"
           topic_help: "Search for an existing regular topic."
           limits_section: "Group limits"
-          limits_help: "Each group receives this allowance once per UTC calendar month. Unused replies carry over without a cap. Saved changes apply to the next monthly credit."
+          limits_help: "Each group receives this allowance once per UTC calendar month. Unused replies carry over without a cap while membership stays active. Expiration removes the balance, and a later subscription starts fresh. Saved rule changes apply to the next monthly credit."
           group: "Group"
           reply_limit: "Monthly reply allowance"
           warning_percentage: "Warning percentage"

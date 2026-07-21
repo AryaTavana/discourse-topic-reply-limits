@@ -163,7 +163,7 @@ RSpec.describe PostsController do
       expect(current_usage(target_user: admin)).to be_nil
     end
 
-    it "counts current-month replies from before a user joins a limited group" do
+    it "does not count replies from before subscription membership starts" do
       group.remove(user)
       user.reload
       DiscourseTopicReplyLimits::Rule.create!(
@@ -181,8 +181,12 @@ RSpec.describe PostsController do
       user.reload
       expect(
         DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
-      ).to include(reached: true, reply_count: 2)
+      ).to include(reached: false, reply_count: 0)
       create_reply(3)
+      expect(response.status).to eq(200)
+      create_reply(4)
+      expect(response.status).to eq(200)
+      create_reply(5)
 
       expect(response.status).to eq(422)
       expect(current_usage.reply_count).to eq(2)
@@ -232,11 +236,14 @@ RSpec.describe PostsController do
       end
     end
 
-    it "does not grant allowances for months outside the subscription group" do
+    it "removes carryover at expiration and starts a new subscription fresh" do
       create_rule(reply_limit: 2)
       create_reply(1)
       group.remove(user)
       user.reload
+      expect(
+        DiscourseTopicReplyLimits::Usage.where(user:, group:)
+      ).to be_empty
 
       return_month =
         DiscourseTopicReplyLimits::Calendar.next_credit_at(
@@ -251,8 +258,9 @@ RSpec.describe PostsController do
         expect(state[:assignments]).to contain_exactly(
           include(
             monthly_reply_limit: 2,
-            carried_in: 1,
-            total_allowance: 3
+            carried_in: 0,
+            total_allowance: 2,
+            reply_count: 0
           )
         )
         expect(
@@ -261,8 +269,53 @@ RSpec.describe PostsController do
             topic:,
             group:
           ).count
-        ).to eq(2)
+        ).to eq(1)
       end
+    end
+
+    it "resets usage when a subscription expires and restarts in the same month" do
+      create_rule(reply_limit: 2)
+      create_reply(1)
+      group.remove(user)
+      user.reload
+
+      expect(
+        DiscourseTopicReplyLimits::Usage.where(user:, group:)
+      ).to be_empty
+
+      # Simulate a frozen row left by the pre-reset release. A closed
+      # membership interval must make reactivation discard it.
+      DiscourseTopicReplyLimits::Usage.create!(
+        user:,
+        topic:,
+        group:,
+        period_start: DiscourseTopicReplyLimits::Calendar.period_start,
+        monthly_allowance: 2,
+        warning_percentage: 80,
+        carried_in: 5,
+        reply_count: 1
+      )
+
+      group.add(user)
+      user.reload
+      state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+
+      expect(state[:assignments]).to contain_exactly(
+        include(
+          monthly_reply_limit: 2,
+          carried_in: 0,
+          total_allowance: 2,
+          reply_count: 0,
+          remaining: 2
+        )
+      )
+
+      create_reply(2)
+      expect(response.status).to eq(200)
+      create_reply(3)
+      expect(response.status).to eq(200)
+      create_reply(4)
+      expect(response.status).to eq(422)
     end
   end
 end

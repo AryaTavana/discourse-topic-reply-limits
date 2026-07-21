@@ -13,9 +13,12 @@ Improvements made:
   intervals, and monthly group/topic usage rows;
 - used half-open membership boundaries so removal exactly at a UTC month boundary
   does not earn that month;
-- froze rather than erased balances during inactive subscription months;
+- reset balances when subscription-group membership ends and scoped historical
+  reply reconciliation to the new continuous membership;
 - retained the user/topic advisory lock across all matching group checks and
   increments, plus a separate membership-transition lock;
+- ordered expiration against affected user/topic locks so concurrent posting
+  cannot recreate a stale balance after subscription removal;
 - reconciled stored usage upward from deleted-inclusive post history.
 
 ## Pass 2 — performance and UX

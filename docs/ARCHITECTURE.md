@@ -27,9 +27,10 @@ remaining       = max(total_available - created_replies, 0)
 next carried_in = remaining
 ```
 
-Carryover is intentionally uncapped. An inactive month creates no usage row and
-adds no allowance. The most recently earned remaining balance is frozen across
-the gap and becomes `carried_in` when an eligible month resumes.
+Carryover is intentionally uncapped while the same subscription-group membership
+remains continuous. When that membership ends, all usage and carryover rows for
+the user/group are deleted. A later membership starts with the current month's
+base allowance and zero carryover, including when it begins in the same month.
 
 The warning starts at:
 
@@ -52,7 +53,9 @@ next monthly credit and never retroactively changes an already granted balance.
 are bootstrapped when a rule is created and during the 1.1 migration. Both
 `GroupUser` callbacks and Discourse's bulk group events are observed, covering
 the direct DiscourseConnect path and the GroupManager/API path. Duplicate events
-are idempotent under a user/group advisory lock.
+are idempotent under a user/group advisory lock. Closing an interval deletes the
+group's allowance ledger for that user, so a later interval creates a fresh
+entitlement.
 
 If a user matches multiple configured groups, each group ledger is evaluated and
 consumed independently. Reaching any matching assignment rejects the reply. The
@@ -66,12 +69,12 @@ forum tier, so subscribers normally have one applicable ledger.
 allowance and warning percentage, records carry-in and created replies, and
 stores the last reply time.
 
-Missing eligible months are materialized lazily. Membership intervals and post
-statistics are fetched in batches. Regular replies from the whole calendar
-month are reconciled with `Post.with_deleted`; the stored value only moves up.
-Consequently, soft deletion, permanent deletion, and editing can never restore
-quota, and replies created before joining a tier still count for that calendar
-month as required by the original counter semantics.
+Missing eligible months are materialized lazily. Regular replies created from
+the start of the current continuous membership are reconciled in batches with
+`Post.with_deleted`; the stored value only moves up. Consequently, soft deletion,
+permanent deletion, and editing can never restore quota. Replies from before the
+current subscription—including an earlier subscription in the same month—do
+not consume its fresh allowance.
 
 The 1.1 migration leaves the old `topic_reply_limit_usages` table untouched for
 zero-downtime rollout and rollback/audit safety. It is never consulted for
@@ -88,7 +91,13 @@ all matching current rows are incremented.
 
 The increment commits or rolls back with the post. Database unique indexes and
 check constraints protect the final invariants. A separate advisory lock
-serializes membership transitions by `(user_id, group_id)`.
+serializes membership transitions by `(user_id, group_id)`. Expiration first
+acquires the affected user/topic locks in stable order, then the membership
+lock, and finally removes the ledgers. A concurrent reply therefore either
+commits before expiration and is erased with that subscription or observes the
+closed membership and is rejected. Reply transactions also take a PostgreSQL
+`FOR KEY SHARE` lock on the applicable `GroupUser` row; concurrent replies can
+share it, while group removal cannot cross the entitlement check mid-transaction.
 
 ## Security and lifecycle
 

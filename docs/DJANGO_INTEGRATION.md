@@ -37,21 +37,24 @@ is required.
   tier group applies.
 - Discourse observes group intervals, grants only eligible calendar months, and
   remains authoritative for committed reply transactions and carryover.
-- Removing a group freezes its earned balance and stops monthly credits.
-- Re-adding it restores the balance and credits the current calendar month once.
+- Removing a group deletes its available allowance and carryover immediately.
+- Re-adding it starts a new subscription ledger with the current month's fresh
+  allowance and no carryover, even when re-added in the same month.
 - A tier change closes one group ledger and opens another; balances are not
   combined because each configured group has its own independent rule.
 
 This avoids sending consumption state to Django, avoids a second shared secret,
-and keeps enforcement atomic with post creation. It also avoids awarding months
-that elapsed while an expired subscriber was absent from the group.
+and keeps enforcement atomic with post creation. The group removal emitted by
+Django is the authoritative expiration signal and the group addition is the
+authoritative fresh-subscription signal.
 
-## Why this is not a subscription-renewal reset
+## Subscription reset boundary
 
 The requested policy says "each month" and "next month", so a UTC calendar month
 is explicit and deterministic. The current Django data does not provide a stable
-cross-system renewal-period identifier. Inferring one from an end date, a brief
-group-sync failure, or overlapping purchases could duplicate or erase credit.
+cross-system renewal-period identifier, so the existing managed-group boundary
+defines subscription continuity. A removal intentionally erases the Discourse
+balance; a later addition intentionally begins fresh.
 
 If the product later changes to billing-anniversary allowances, add an immutable
 Django entitlement-period UUID and deliver it to a narrow authenticated,

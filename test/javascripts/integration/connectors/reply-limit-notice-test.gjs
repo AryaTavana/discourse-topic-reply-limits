@@ -46,7 +46,12 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
     assert
       .dom(".topic-reply-limits-notice.--warning")
       .includesText("20")
-      .includesText("3");
+      .includesText("3")
+      .includesText(
+        i18n(
+          "discourse_topic_reply_limits.subscription_reset_explanation"
+        )
+      );
   });
 
   test("renders an assertive reached-limit alert", async function (assert) {
@@ -75,5 +80,12 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
     assert
       .dom(".topic-reply-limits-notice__message:first-of-type")
       .hasText(i18n("discourse_topic_reply_limits.reached"));
+    assert
+      .dom(".topic-reply-limits-notice.--reached")
+      .includesText(
+        i18n(
+          "discourse_topic_reply_limits.subscription_reset_explanation"
+        )
+      );
   });
 });

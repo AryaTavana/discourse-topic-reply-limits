@@ -33,6 +33,11 @@ export default <template>
         <span class="topic-reply-limits-notice__detail">
           {{i18n "discourse_topic_reply_limits.rollover_explanation"}}
         </span>
+        <span class="topic-reply-limits-notice__detail">
+          {{i18n
+            "discourse_topic_reply_limits.subscription_reset_explanation"
+          }}
+        </span>
       </div>
     </div>
   {{else}}
@@ -71,6 +76,11 @@ export default <template>
           </span>
           <span class="topic-reply-limits-notice__detail">
             {{i18n "discourse_topic_reply_limits.rollover_explanation"}}
+          </span>
+          <span class="topic-reply-limits-notice__detail">
+            {{i18n
+              "discourse_topic_reply_limits.subscription_reset_explanation"
+            }}
           </span>
           <span class="topic-reply-limits-notice__detail">
             {{i18n

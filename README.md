@@ -10,8 +10,9 @@ grant access to topics.
 - One or more group-specific limits for any regular topic.
 - Topic and group search/select controls in Discourse Admin.
 - UTC calendar-month allowances with unlimited unused-reply carryover.
-- Subscription-group interval tracking: inactive months add no allowance, while
-  an earned balance remains frozen until the group is restored.
+- Subscription-group interval tracking: carryover lasts only while membership
+  remains continuous; expiration removes the balance and a new subscription
+  starts fresh.
 - Configurable warning threshold per group (80% by default), calculated against
   the month's new allowance plus carryover.
 - Server-side enforcement for web, mobile, API, and email-created replies.
@@ -19,8 +20,8 @@ grant access to topics.
 - Staff bypass for administrators and moderators.
 - Monthly created-reply counters: deletion never restores quota and editing
   never consumes quota.
-- Current-month backfill includes regular replies created before the rule/group
-  became active and includes soft-deleted replies.
+- Current-month backfill includes regular replies created during the current
+  subscription before the rule became active, including soft-deleted replies.
 - Transaction-scoped locking, database uniqueness, and check constraints.
 - Staff action audit entries for rule changes.
 - Admin JSON rule API and a guardian-protected current-user status API.
@@ -97,17 +98,18 @@ UTC calendar month:
 - Soft-deleting or permanently deleting a reply does not return a unit.
 - Unused replies carry forward without a cap. For example, using 2 of 5 leaves
   3 carried replies; the next eligible month starts with 8 available.
-- If Django removes the user from the assigned group, the existing balance is
-  frozen and inactive months add nothing. Rejoining restores the balance and
-  adds the current month's allowance once.
+- If Django removes the user from the assigned group, all available replies and
+  carryover for that group are removed immediately.
+- Rejoining after expiration starts a new subscription ledger with the fresh
+  monthly allowance and zero carryover, even within the same calendar month.
 - Administrators and moderators bypass every rule.
 - Private messages and non-regular system posts are not counted.
 
 At the configured threshold, the topic explains the monthly/carryover breakdown,
-remaining count, rollover behavior, and next credit date. At the limit, the
-topic's reply controls are disabled and the server rejects any crafted or
-concurrent extra request. An open topic refreshes its state automatically at the
-next credit boundary.
+remaining count, rollover behavior, subscription-expiration reset, and next
+credit date. At the limit, the topic's reply controls are disabled and the
+server rejects any crafted or concurrent extra request. An open topic refreshes
+its state automatically at the next credit boundary.
 
 If a user matches more than one configured group, every matching assignment is
 reported and enforced independently. The plugin does not choose or combine a
@@ -192,7 +194,8 @@ anniversaries instead of UTC calendar months.
 - Rule create/update/delete actions are recorded as custom staff actions.
 - Disabling the site setting immediately stops enforcement and removes the
   client payload without deleting rules or counters.
-- Re-enabling resumes from retained monthly usage and carryover.
+- Re-enabling resumes active-subscription usage. A membership that expired while
+  the plugin was enabled has no retained allowance or carryover.
 - Database backups include all plugin tables through the normal Discourse
   backup process.
 

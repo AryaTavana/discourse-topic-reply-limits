@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.1
+
+- Remove all available and carried replies when subscription-group membership
+  ends.
+- Start a later subscription with a fresh monthly allowance, including when the
+  user rejoins the same group during the same UTC month.
+- Ignore replies created before the current continuous subscription membership
+  when reconciling its monthly usage.
+- Explain subscription-expiration resets in user notices and the admin form.
+
 ## 1.1.0
 
 - Change reply limits from lifetime quotas to UTC calendar-month allowances.
