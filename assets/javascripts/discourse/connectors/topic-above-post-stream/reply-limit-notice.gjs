@@ -1,7 +1,39 @@
-import { trustHTML } from "@ember/template";
-import dFormatDate from "discourse/ui-kit/helpers/d-format-date";
+import { helper } from "@ember/component/helper";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
-import { i18n } from "discourse-i18n";
+import I18n, { i18n } from "discourse-i18n";
+
+const formatUtcDateTime = helper(([value]) => {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const options = {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "UTC",
+  };
+  const locale = I18n.currentLocale()?.replaceAll("_", "-");
+  let formatted;
+
+  try {
+    formatted = new Intl.DateTimeFormat(locale || undefined, options).format(
+      date
+    );
+  } catch {
+    formatted = new Intl.DateTimeFormat(undefined, options).format(date);
+  }
+
+  return `${formatted} UTC`;
+});
 
 export default <template>
   {{#if @outletArgs.model.reply_limit.reached}}
@@ -21,15 +53,13 @@ export default <template>
         <span class="topic-reply-limits-notice__message">
           {{i18n "discourse_topic_reply_limits.reached"}}
         </span>
-        <span class="topic-reply-limits-notice__message">
-          {{trustHTML
-            (i18n
-              "discourse_topic_reply_limits.next_credit"
-              date=(dFormatDate
-                @outletArgs.model.reply_limit.next_credit_at
-                format="medium"
-                noTitle=true
-              )
+        <span
+          class="topic-reply-limits-notice__message topic-reply-limits-notice__next-credit"
+        >
+          {{i18n
+            "discourse_topic_reply_limits.next_credit"
+            date=(formatUtcDateTime
+              @outletArgs.model.reply_limit.next_credit_at
             )
           }}
         </span>
@@ -85,15 +115,13 @@ export default <template>
               "discourse_topic_reply_limits.subscription_reset_explanation"
             }}
           </span>
-          <span class="topic-reply-limits-notice__detail">
-            {{trustHTML
-              (i18n
-                "discourse_topic_reply_limits.next_credit"
-                date=(dFormatDate
-                  @outletArgs.model.reply_limit.next_credit_at
-                  format="medium"
-                  noTitle=true
-                )
+          <span
+            class="topic-reply-limits-notice__detail topic-reply-limits-notice__next-credit"
+          >
+            {{i18n
+              "discourse_topic_reply_limits.next_credit"
+              date=(formatUtcDateTime
+                @outletArgs.model.reply_limit.next_credit_at
               )
             }}
           </span>

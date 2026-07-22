@@ -53,14 +53,11 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
         )
       );
     assert
-      .dom(".topic-reply-limits-notice.--warning .relative-date")
-      .exists("renders the next-credit date as an element");
-    assert.false(
-      document
-        .querySelector(".topic-reply-limits-notice.--warning")
-        .textContent.includes("<span"),
-      "does not expose escaped relative-date markup"
-    );
+      .dom(".topic-reply-limits-notice.--warning .topic-reply-limits-notice__next-credit")
+      .includesText("August 1, 2026")
+      .includesText("00:00 UTC")
+      .doesNotIncludeText("just now")
+      .doesNotIncludeText("<span");
   });
 
   test("renders an assertive reached-limit alert", async function (assert) {
@@ -97,13 +94,10 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
         )
       );
     assert
-      .dom(".topic-reply-limits-notice.--reached .relative-date")
-      .exists("renders the next-credit date as an element");
-    assert.false(
-      document
-        .querySelector(".topic-reply-limits-notice.--reached")
-        .textContent.includes("<span"),
-      "does not expose escaped relative-date markup"
-    );
+      .dom(".topic-reply-limits-notice.--reached .topic-reply-limits-notice__next-credit")
+      .includesText("August 1, 2026")
+      .includesText("00:00 UTC")
+      .doesNotIncludeText("just now")
+      .doesNotIncludeText("<span");
   });
 });

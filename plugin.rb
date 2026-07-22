@@ -2,7 +2,7 @@
 
 # name: discourse-topic-reply-limits
 # about: Applies monthly per-topic reply allowances with carryover to selected Discourse groups.
-# version: 1.1.2
+# version: 1.1.3
 # authors: Arya Tavana
 # url: https://github.com/AryaTavana/discourse-topic-reply-limits
 # required_version: 3.5.0

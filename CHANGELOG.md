@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3
+
+- Replace the unreliable relative reset label with an explicit localized UTC
+  date and time in both warning and reached-limit notices.
+- Ensure notices never describe a future monthly reset as “just now.”
+
 ## 1.1.2
 
 - Render the next monthly credit time as Discourse's live relative-date element
