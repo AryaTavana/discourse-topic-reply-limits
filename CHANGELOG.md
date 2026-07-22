@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2
+
+- Render the next monthly credit time as Discourse's live relative-date element
+  instead of displaying its escaped HTML markup in warning and limit notices.
+- Add frontend regression coverage for both notice states.
+
 ## 1.1.1
 
 - Remove all available and carried replies when subscription-group membership

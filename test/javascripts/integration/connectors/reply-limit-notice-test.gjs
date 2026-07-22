@@ -52,6 +52,15 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
           "discourse_topic_reply_limits.subscription_reset_explanation"
         )
       );
+    assert
+      .dom(".topic-reply-limits-notice.--warning .relative-date")
+      .exists("renders the next-credit date as an element");
+    assert.false(
+      document
+        .querySelector(".topic-reply-limits-notice.--warning")
+        .textContent.includes("<span"),
+      "does not expose escaped relative-date markup"
+    );
   });
 
   test("renders an assertive reached-limit alert", async function (assert) {
@@ -87,5 +96,14 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
           "discourse_topic_reply_limits.subscription_reset_explanation"
         )
       );
+    assert
+      .dom(".topic-reply-limits-notice.--reached .relative-date")
+      .exists("renders the next-credit date as an element");
+    assert.false(
+      document
+        .querySelector(".topic-reply-limits-notice.--reached")
+        .textContent.includes("<span"),
+      "does not expose escaped relative-date markup"
+    );
   });
 });
