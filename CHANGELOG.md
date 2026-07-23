@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.4
+
+- Add a compact reached-limit indicator beside the bottom topic controls.
+- Show an accessible hover/focus tooltip explaining that the topic reply limit
+  has been reached.
+
 ## 1.1.3
 
 - Replace the unreliable relative reset label with an explicit localized UTC

@@ -107,9 +107,11 @@ UTC calendar month:
 
 At the configured threshold, the topic explains the monthly/carryover breakdown,
 remaining count, rollover behavior, subscription-expiration reset, and next
-credit date. At the limit, the topic's reply controls are disabled and the
-server rejects any crafted or concurrent extra request. An open topic refreshes
-its state automatically at the next credit boundary.
+credit date. At the limit, the topic's reply controls are disabled, a compact
+status icon appears beside the bottom topic controls with an explanatory
+hover/focus tooltip, and the server rejects any crafted or concurrent extra
+request. An open topic refreshes its state automatically at the next credit
+boundary.
 
 If a user matches more than one configured group, every matching assignment is
 reported and enforced independently. The plugin does not choose or combine a

@@ -9,6 +9,7 @@ en:
       rollover_explanation: "Unused replies carry into the next month only while your subscription remains active."
       subscription_reset_explanation: "If your subscription expires, all available and carried replies are removed. A new subscription starts with a fresh allowance."
       next_credit: "If you remain in an eligible group, your next monthly allowance will be added %{date}."
+      footer_reached_tooltip: "You have reached your reply limit for this topic."
       remaining:
         one: "%{count} reply remaining"
         other: "%{count} replies remaining"

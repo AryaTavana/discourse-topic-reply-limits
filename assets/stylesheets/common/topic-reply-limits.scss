@@ -64,3 +64,45 @@
     --reply-limit-notice-border: var(--danger-medium);
   }
 }
+
+.topic-reply-limits-footer-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  box-sizing: border-box;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--danger-medium);
+  border-radius: 50%;
+  background: var(--danger-low);
+  color: var(--danger);
+  cursor: help;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+
+  .fk-d-tooltip__trigger-container {
+    display: grid;
+    place-items: center;
+  }
+
+  .d-icon {
+    margin: 0;
+    font-size: var(--font-up-1);
+  }
+
+  &:hover,
+  &:focus-visible,
+  &.-expanded {
+    border-color: var(--danger);
+    background: var(--danger);
+    color: var(--secondary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tertiary);
+    outline-offset: 2px;
+  }
+}
