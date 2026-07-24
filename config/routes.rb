@@ -16,6 +16,7 @@ Discourse::Application.routes.draw do
     get "/rule-sets" => "discourse_topic_reply_limits/admin/rule_sets#index"
     get "/rule-sets/:topic_id" =>
           "discourse_topic_reply_limits/admin/rule_sets#show"
+    get "/usage" => "discourse_topic_reply_limits/admin/usage#index"
     post "/rule-sets" => "discourse_topic_reply_limits/admin/rule_sets#create"
     put "/rule-sets/:topic_id" =>
           "discourse_topic_reply_limits/admin/rule_sets#update"

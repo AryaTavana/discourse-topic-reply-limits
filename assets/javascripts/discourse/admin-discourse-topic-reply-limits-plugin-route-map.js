@@ -6,6 +6,7 @@ export default {
     this.route("topic-reply-limits", { path: "reply-limits" }, function () {
       this.route("new");
       this.route("edit", { path: "/:topic_id/edit" });
+      this.route("usage");
     });
   },
 };

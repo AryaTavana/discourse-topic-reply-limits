@@ -24,7 +24,9 @@ grant access to topics.
   subscription before the rule became active, including soft-deleted replies.
 - Transaction-scoped locking, database uniqueness, and check constraints.
 - Staff action audit entries for rule changes.
-- Admin JSON rule API and a guardian-protected current-user status API.
+- Searchable, paginated admin usage reporting with current used and remaining
+  balances.
+- Admin JSON rule/usage APIs and a guardian-protected current-user status API.
 
 ## Compatibility
 
@@ -74,6 +76,13 @@ bundle exec rails db:migrate
 4. Add one or more group assignments, each with its own monthly reply allowance
    and warning percentage.
 5. Save the rule set.
+
+Open **Admin > Plugins > Topic reply limits > User usage** to review each
+active user's monthly allowance, carryover, used replies, current remaining
+balance, status, and last reply for every matching topic/group assignment.
+Administrators and moderators are omitted because they bypass limits. Users
+whose subscription group has been removed are omitted because expiration
+removes their active allowance.
 
 For example, one topic can have these independent assignments:
 
@@ -154,6 +163,11 @@ CSRF/API-key protections:
 - `POST /admin/plugins/discourse-topic-reply-limits/rule-sets.json`
 - `PUT /admin/plugins/discourse-topic-reply-limits/rule-sets/:topic_id.json`
 - `DELETE /admin/plugins/discourse-topic-reply-limits/rule-sets/:topic_id.json`
+- `GET /admin/plugins/discourse-topic-reply-limits/usage.json`
+
+The usage endpoint accepts `q`, `page`, and `per_page` parameters. Search
+matches usernames, display names, topic titles, and group names. Page size
+defaults to 50 and is capped at 100.
 
 Create/update body:
 
@@ -179,7 +193,8 @@ The endpoint never exposes another user's usage.
 
 For server integrations, create a granular Discourse API key and select the
 plugin-provided `topic reply limits / read rules` and/or `manage rules` scopes.
-The acting API user must still be an administrator. Avoid a global-scope key.
+Use `topic reply limits / read usage` for the usage report. The acting API user
+must still be an administrator. Avoid a global-scope key.
 
 ## Subscription integration
 

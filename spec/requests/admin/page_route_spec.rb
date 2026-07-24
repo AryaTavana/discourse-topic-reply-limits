@@ -22,6 +22,15 @@ RSpec.describe "Topic reply limits admin page" do
     expect(response.media_type).to eq("text/html")
   end
 
+  it "serves the admin application shell for the usage page" do
+    sign_in(admin)
+
+    get "/admin/plugins/discourse-topic-reply-limits/reply-limits/usage"
+
+    expect(response.status).to eq(200)
+    expect(response.media_type).to eq("text/html")
+  end
+
   it "does not expose the admin page to moderators" do
     sign_in(moderator)
 

@@ -99,10 +99,30 @@ closed membership and is rejected. Reply transactions also take a PostgreSQL
 `FOR KEY SHARE` lock on the applicable `GroupUser` row; concurrent replies can
 share it, while group removal cannot cross the entitlement check mid-transaction.
 
+## Admin usage reporting
+
+The admin usage report starts from active `GroupUser` assignments joined to
+current topic/group rules. It excludes staff because their replies bypass the
+ledger, and it naturally excludes expired subscriptions because their group
+membership and active balance no longer exist. Each row represents one
+independent user/topic/group assignment.
+
+Results are filtered and paginated in PostgreSQL before ledger work begins. The
+default page size is 50 and the server caps it at 100. For each user/topic pair
+on the requested page, the normal authoritative materialization path fills any
+missing eligible months and reconciles created replies before returning monthly
+allowance, carryover, total available, current-period usage, remaining balance,
+and last reply time. Opening the report can therefore create missing current
+ledger rows for the bounded page, but it never changes reply history or consumes
+allowance.
+
 ## Security and lifecycle
 
 - Rule routes require the admin constraint, admin controller, service policy,
   validated nested input, and normal CSRF/API authentication.
+- The usage route has the same admin-only route/controller protections,
+  parameter-bound search, bounded pagination, and a separate granular API-key
+  scope.
 - The status endpoint requires login and `Guardian#ensure_can_see!`; it can only
   return the current user's state and normal reply permission.
 - User-facing state omits rule, group, and user identifiers.

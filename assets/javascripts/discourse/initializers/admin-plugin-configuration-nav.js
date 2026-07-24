@@ -20,6 +20,12 @@ export default {
           description:
             "discourse_topic_reply_limits.admin.rules.description",
         },
+        {
+          label: "discourse_topic_reply_limits.admin.usage.title",
+          route: "adminPlugins.show.topic-reply-limits.usage",
+          description:
+            "discourse_topic_reply_limits.admin.usage.description",
+        },
       ]);
     });
   },

@@ -63,3 +63,133 @@
     }
   }
 }
+
+.topic-reply-limit-usage {
+  display: grid;
+  gap: 1em;
+
+  &__period {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35em 1em;
+    align-items: baseline;
+    padding: 0.75em 1em;
+    border: 1px solid var(--primary-low);
+    border-radius: var(--d-border-radius);
+    background: var(--primary-very-low);
+  }
+
+  &__period-label {
+    color: var(--primary-medium);
+    font-size: var(--font-down-1);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  &__filter {
+    display: grid;
+    gap: 0.25em;
+    max-width: 42em;
+
+    label {
+      font-weight: 600;
+    }
+  }
+
+  &__filter-controls {
+    display: flex;
+    gap: 0.5em;
+
+    input {
+      flex: 1 1 20em;
+      min-width: 0;
+    }
+
+    @include viewport.until(sm) {
+      flex-wrap: wrap;
+
+      input {
+        flex-basis: 100%;
+      }
+    }
+  }
+
+  &__range {
+    margin-block: 0 0.5em;
+    color: var(--primary-medium);
+    font-size: var(--font-down-1);
+  }
+
+  &__table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--primary-low);
+    border-radius: var(--d-border-radius);
+  }
+
+  &__table {
+    width: 100%;
+    min-width: 72em;
+    margin: 0;
+
+    .d-table__header-cell,
+    .d-table__cell {
+      padding: 0.75em;
+      vertical-align: middle;
+    }
+
+    .--numeric {
+      text-align: right;
+      white-space: nowrap;
+    }
+  }
+
+  &__user {
+    display: inline-flex;
+    gap: 0.5em;
+    align-items: center;
+
+    img.avatar {
+      flex: 0 0 auto;
+    }
+
+    span {
+      display: grid;
+    }
+
+    small {
+      max-width: 14em;
+      overflow: hidden;
+      color: var(--primary-medium);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &__status {
+    display: inline-flex;
+    padding: 0.2em 0.55em;
+    border-radius: 999px;
+    font-size: var(--font-down-1);
+    font-weight: 600;
+    white-space: nowrap;
+
+    &.--available {
+      background: var(--success-low);
+      color: var(--success);
+    }
+
+    &.--reached {
+      background: var(--danger-low);
+      color: var(--danger);
+    }
+  }
+
+  &__pagination {
+    display: flex;
+    gap: 0.75em;
+    align-items: center;
+    justify-content: flex-end;
+    margin-block-start: 1em;
+  }
+}

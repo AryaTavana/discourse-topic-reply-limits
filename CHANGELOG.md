@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0
+
+- Add an admin-only **User usage** page with current balances for every active
+  user, topic, and group assignment.
+- Show monthly allowance, carryover, total available, replies used this month,
+  remaining replies, reached status, and last reply time.
+- Add bounded server-side search and pagination plus a granular read-usage API
+  key scope.
+
 ## 1.1.4
 
 - Add a compact reached-limit indicator beside the bottom topic controls.
