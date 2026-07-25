@@ -54,6 +54,65 @@ RSpec.describe PostsController do
       expect(current_usage.reply_count).to eq(2)
     end
 
+    it "applies a decreased rule immediately to the active cycle" do
+      create_rule(reply_limit: 8)
+      create_reply(1)
+      create_reply(2)
+
+      result =
+        DiscourseTopicReplyLimits::RuleSet::Upsert.call(
+          params: {
+            topic_id: topic.id,
+            assignments: [
+              { group_id: group.id, reply_limit: 2, warning_percentage: 80 }
+            ]
+          },
+          guardian: admin.guardian
+        )
+
+      expect(result).to run_successfully
+      state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+      expect(state[:assignments]).to contain_exactly(
+        include(
+          monthly_reply_limit: 2,
+          total_allowance: 2,
+          reply_count: 2,
+          remaining: 0,
+          reached: true
+        )
+      )
+      expect(current_usage.reload.monthly_allowance).to eq(2)
+
+      create_reply(3)
+      expect(response.status).to eq(422)
+    end
+
+    it "uses the edited rule for a user whose cycle was not materialized yet" do
+      create_rule(reply_limit: 8)
+
+      result =
+        DiscourseTopicReplyLimits::RuleSet::Upsert.call(
+          params: {
+            topic_id: topic.id,
+            assignments: [
+              { group_id: group.id, reply_limit: 2, warning_percentage: 80 }
+            ]
+          },
+          guardian: admin.guardian
+        )
+
+      expect(result).to run_successfully
+      state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+      expect(state[:assignments]).to contain_exactly(
+        include(
+          monthly_reply_limit: 2,
+          total_allowance: 2,
+          reply_count: 0,
+          remaining: 2
+        )
+      )
+    end
+
     it "disables topic replies after the allowance is used" do
       create_rule(reply_limit: 1)
       create_reply(1)
@@ -328,6 +387,7 @@ RSpec.describe PostsController do
         expect(state).to include(
           reached: false,
           next_credit_at: nil,
+          subscription_ends_at: subscription_end,
           period_start: subscription_start
         )
       end

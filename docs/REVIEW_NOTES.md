@@ -32,11 +32,14 @@ Three additional production review passes were completed for 2.0.
 
 - Added local exact next-credit dates, renewal/expiration explanations, and
   automatic open-topic refresh at either the next credit or subscription end.
+- Show the exact subscription end date when expiration prevents another
+  allowance, and apply administrator limit edits to the active cycle
+  immediately without changing its usage history.
 - Added exact cycle bounds to the paginated admin usage report and replaced a
   fragile selected-column alias with an explicit rule/user row carrier.
 - Batched Django entitlement delivery and SSO-record lookup.
 - Verified the additive migration in both directions, Ruby/JavaScript lint,
-  67 RSpec examples, 12 QUnit tests, and the full 152-test Django suite.
+  69 RSpec examples, 13 QUnit tests, and the full 154-test Django suite.
 
 ## 1.1 monthly-ledger review
 

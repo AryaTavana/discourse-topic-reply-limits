@@ -77,18 +77,17 @@ module DiscourseTopicReplyLimits
     def self.settings_for(
       topic_id:,
       group_id:,
-      cycle_started_at:,
-      cycle_ends_at:
+      cycle_ends_at:,
+      at: Time.zone.now
     )
       relation =
         where(topic_id:, group_id:).order(effective_at: :desc, id: :desc)
-      revision = relation.where("effective_at <= ?", cycle_started_at).first
-      return revision if revision&.active?
 
-      relation
-        .where(effective_at: cycle_started_at...cycle_ends_at, active: true)
-        .reorder(:effective_at, :id)
-        .first
+      if at >= cycle_ends_at
+        relation.where("effective_at < ?", cycle_ends_at).first
+      else
+        relation.where("effective_at <= ?", at).first
+      end
     end
   end
 end

@@ -75,19 +75,65 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
     end
 
     it "calculates warnings against the allowance plus carryover" do
-      DiscourseTopicReplyLimits::Rule.create!(
-        topic:,
-        group:,
-        reply_limit: 5,
-        warning_percentage: 80
-      )
-      create_usage(monthly_allowance: 5, carried_in: 2, reply_count: 6)
+      freeze_time(Time.zone.parse("2026-07-25 14:37:21 UTC")) do
+        subscription_start = Time.zone.parse("2026-06-25 14:37:21 UTC")
+        DiscourseTopicReplyLimits::Rule.create!(
+          topic:,
+          group:,
+          reply_limit: 5,
+          warning_percentage: 80,
+          created_at: subscription_start,
+          updated_at: subscription_start
+        )
+        entitlement =
+          DiscourseTopicReplyLimits::Entitlement.create!(
+            user:,
+            group:,
+            external_id: "django-subscription:carryover",
+            starts_at: subscription_start
+          )
+        intervals =
+          DiscourseTopicReplyLimits::SubscriptionCycle.intervals(
+            anchor: entitlement.starts_at,
+            through: Time.zone.now
+          )
+        previous_cycle, current_cycle = intervals
+        DiscourseTopicReplyLimits::CycleUsage.create!(
+          user:,
+          topic:,
+          group:,
+          entitlement_external_id: entitlement.external_id,
+          cycle_started_at: previous_cycle[:started_at],
+          cycle_ends_at: previous_cycle[:ends_at],
+          monthly_allowance: 5,
+          warning_percentage: 80,
+          carried_in: 0,
+          reply_count: 3
+        )
+        DiscourseTopicReplyLimits::CycleUsage.create!(
+          user:,
+          topic:,
+          group:,
+          entitlement_external_id: entitlement.external_id,
+          cycle_started_at: current_cycle[:started_at],
+          cycle_ends_at: current_cycle[:ends_at],
+          monthly_allowance: 5,
+          warning_percentage: 80,
+          carried_in: 2,
+          reply_count: 6
+        )
 
-      state = described_class.for(user:, topic:)
+        state = described_class.for(user:, topic:)
 
-      expect(state[:warnings]).to contain_exactly(
-        include(total_allowance: 7, warning_at: 6, remaining: 1, carried_in: 2)
-      )
+        expect(state[:warnings]).to contain_exactly(
+          include(
+            total_allowance: 7,
+            warning_at: 6,
+            remaining: 1,
+            carried_in: 2
+          )
+        )
+      end
     end
 
     it "marks an assignment reached without exposing a warning" do

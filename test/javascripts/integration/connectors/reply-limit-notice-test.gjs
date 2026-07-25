@@ -128,4 +128,31 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
       .includesText(i18n("discourse_topic_reply_limits.renewal_required"));
     assert.dom(".topic-reply-limits-notice__next-credit").doesNotExist();
   });
+
+  test("shows the subscription end date when no later allowance is scheduled", async function (assert) {
+    await render(
+      <template>
+        <ReplyLimitNotice
+          @outletArgs={{hash
+            model=(hash
+              reply_limit=(hash
+                reached=true
+                unavailable=false
+                next_credit_at=null
+                subscription_ends_at="2026-08-25T14:37:21.000Z"
+                warnings=(array)
+              )
+            )
+          }}
+        />
+      </template>
+    );
+
+    assert
+      .dom(".topic-reply-limits-notice__subscription-end")
+      .includesText("August 25, 2026")
+      .doesNotIncludeText("UTC")
+      .doesNotIncludeText("just now")
+      .doesNotIncludeText("<span");
+  });
 });

@@ -140,7 +140,8 @@ The installation migration creates:
   subscription ID, user/group mapping, exact purchase timestamp, expiration,
   and revocation marker.
 - `topic_reply_limit_rule_revisions`: append-only effective-dated rule values,
-  so an edit does not rewrite an already-open subscription cycle.
+  allowing edits to update the active cycle immediately without rewriting
+  completed historical cycles.
 - `topic_reply_limit_cycle_usages`: immutable subscription-cycle ledger rows,
   including exact cycle bounds, subscription ID, allowance, carry-in,
   created-reply count, and last reply timestamp.

@@ -43,9 +43,11 @@ ceil(total_available * warning_percentage / 100)
 
 `topic_reply_limit_rules` stores the administrator's current configuration.
 `topic_reply_limit_rule_revisions` stores effective-dated active/inactive
-revisions. A cycle snapshots the rule in force at its start. An edit therefore
-applies to the next cycle without rewriting an already-granted allowance. A
-brand-new rule may start in the current cycle.
+revisions. The active cycle uses the latest committed revision immediately and
+reconciles its stored base allowance and warning percentage while retaining
+created replies and derived carryover. A completed cycle uses the last revision
+committed before that cycle ended, so later edits cannot rewrite historical
+ledgers. A brand-new rule may start in the current cycle.
 
 `topic_reply_limit_entitlements` stores the authoritative Django subscription
 selected for a user. Synchronization is idempotent by user and external

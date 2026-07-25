@@ -69,6 +69,17 @@ export default <template>
               )
             }}
           </span>
+        {{else if @outletArgs.model.reply_limit.subscription_ends_at}}
+          <span
+            class="topic-reply-limits-notice__message topic-reply-limits-notice__subscription-end"
+          >
+            {{i18n
+              "discourse_topic_reply_limits.renewal_required_with_date"
+              date=(formatDateTime
+                @outletArgs.model.reply_limit.subscription_ends_at
+              )
+            }}
+          </span>
         {{else}}
           <span class="topic-reply-limits-notice__message">
             {{i18n "discourse_topic_reply_limits.renewal_required"}}
@@ -133,6 +144,15 @@ export default <template>
               {{i18n
                 "discourse_topic_reply_limits.next_credit"
                 date=(formatDateTime warning.next_credit_at)
+              }}
+            </span>
+          {{else if warning.subscription_ends_at}}
+            <span
+              class="topic-reply-limits-notice__detail topic-reply-limits-notice__subscription-end"
+            >
+              {{i18n
+                "discourse_topic_reply_limits.renewal_required_with_date"
+                date=(formatDateTime warning.subscription_ends_at)
               }}
             </span>
           {{else}}

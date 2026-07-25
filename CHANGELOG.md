@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1
+
+- Apply reply-limit and warning-percentage edits immediately to every active
+  subscription cycle while retaining its created-reply count and carryover.
+- Preserve the final applicable rule revision for completed historical cycles,
+  so later edits cannot rewrite old ledgers.
+- Show the exact localized subscription end date when another allowance is not
+  scheduled before expiration.
+
 ## 2.0.0
 
 - Anchor every allowance cycle to the exact Django subscription purchase

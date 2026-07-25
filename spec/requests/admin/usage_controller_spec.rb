@@ -53,7 +53,41 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::UsageController do
   end
 
   it "lists current used and remaining balances for an admin" do
-    create_cycle_usage(monthly_allowance: 5, carried_in: 2, reply_count: 3)
+    subscription_start = 1.month.ago - 1.second
+    entitlement =
+      DiscourseTopicReplyLimits::Entitlement.create!(
+        user:,
+        group:,
+        external_id: "django-subscription:usage-report",
+        starts_at: subscription_start
+      )
+    DiscourseTopicReplyLimits::Rule.find_by!(topic:, group:).update_columns(
+      created_at: subscription_start,
+      updated_at: subscription_start
+    )
+    previous_cycle, current_cycle =
+      DiscourseTopicReplyLimits::SubscriptionCycle.intervals(
+        anchor: subscription_start,
+        through: Time.zone.now
+      )
+    [
+      [previous_cycle, 0, 3],
+      [current_cycle, 2, 3]
+    ].each do |cycle, carried_in, reply_count|
+      DiscourseTopicReplyLimits::CycleUsage.create!(
+        user:,
+        topic:,
+        group:,
+        entitlement_external_id: entitlement.external_id,
+        cycle_started_at: cycle[:started_at],
+        cycle_ends_at: cycle[:ends_at],
+        monthly_allowance: 5,
+        warning_percentage: 80,
+        carried_in:,
+        reply_count:,
+        last_reply_at: 1.hour.ago
+      )
+    end
     sign_in(admin)
 
     get "/admin/plugins/discourse-topic-reply-limits/usage.json"

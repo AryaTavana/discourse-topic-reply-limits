@@ -10,6 +10,7 @@ en:
       subscription_reset_explanation: "If your subscription expires, all available and carried replies are removed. A new subscription starts with a fresh allowance."
       next_credit: "Your next allowance will be added on %{date}, based on your subscription purchase time."
       renewal_required: "This subscription ends before another allowance is due. Renewing or buying a new subscription starts a fresh allowance at the new purchase time."
+      renewal_required_with_date: "Your subscription ends on %{date}, before another allowance is due. Renewing or buying a new subscription starts a fresh allowance at the new purchase time."
       subscription_inactive: "Your subscription allowance is inactive, so replies are unavailable for this topic."
       footer_reached_tooltip: "You have reached your reply limit for this topic."
       remaining:
@@ -67,7 +68,7 @@ en:
           topic: "Topic"
           topic_help: "Search for an existing regular topic."
           limits_section: "Group limits"
-          limits_help: "Each group receives this allowance at the exact monthly anniversary of the user's subscription purchase. Unused replies carry over without a cap while the subscription stays active. Expiration removes the balance, and a new subscription starts fresh. Saved rule changes apply to the next allowance cycle."
+          limits_help: "Each group receives this allowance at the exact monthly anniversary of the user's subscription purchase. Unused replies carry over without a cap while the subscription stays active. Expiration removes the balance, and a new subscription starts fresh. Saved rule changes apply immediately to the current allowance cycle."
           group: "Group"
           reply_limit: "Reply allowance per subscription cycle"
           warning_percentage: "Warning percentage"

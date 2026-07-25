@@ -93,8 +93,8 @@ module DiscourseTopicReplyLimits
           RuleRevision.settings_for(
             topic_id: topic.id,
             group_id: rule.group_id,
-            cycle_started_at: interval[:started_at],
-            cycle_ends_at: interval[:ends_at]
+            cycle_ends_at: interval[:ends_at],
+            at:
           )
         unless settings&.active?
           previous = nil
@@ -117,9 +117,17 @@ module DiscourseTopicReplyLimits
             usage.reply_count = count
             usage.last_reply_at = last_reply_at
           end
+        row.assign_attributes(
+          cycle_ends_at: interval[:ends_at],
+          monthly_allowance: settings.reply_limit,
+          warning_percentage: settings.warning_percentage,
+          carried_in: previous&.remaining || 0
+        )
         if count > row.reply_count
-          row.update!(reply_count: count, last_reply_at:)
+          row.reply_count = count
+          row.last_reply_at = last_reply_at
         end
+        row.save! if row.changed?
         previous = row
       end
 

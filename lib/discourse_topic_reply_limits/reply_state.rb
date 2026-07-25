@@ -25,6 +25,10 @@ module DiscourseTopicReplyLimits
         end
       next_credit_at =
         assignments.filter_map { |assignment| assignment[:next_credit_at] }.min
+      subscription_ends_at =
+        assignments
+          .filter_map { |assignment| assignment[:subscription_ends_at] }
+          .min
       refresh_at =
         assignments
           .flat_map do |assignment|
@@ -44,6 +48,7 @@ module DiscourseTopicReplyLimits
             .filter_map { |assignment| assignment[:cycle_started_at] }
             .min,
         next_credit_at:,
+        subscription_ends_at:,
         refresh_at:,
         assignments:,
         warnings: assignments.select { |assignment| assignment[:warning] }
@@ -92,7 +97,8 @@ module DiscourseTopicReplyLimits
         reached: true,
         warning: false,
         unavailable: true,
-        next_credit_at: nil
+        next_credit_at: nil,
+        subscription_ends_at: nil
       }
     end
 
