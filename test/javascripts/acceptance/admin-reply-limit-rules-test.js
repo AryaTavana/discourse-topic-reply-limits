@@ -52,6 +52,8 @@ acceptance("Admin - Topic reply limits", function (needs) {
                     url: "/t/gold-analysis-discussion/22",
                   },
                   group: { id: 33, name: "forum_master" },
+                  cycle_started_at: "2026-07-25T10:00:00.000Z",
+                  cycle_ends_at: "2026-08-25T10:00:00.000Z",
                   monthly_allowance: 5,
                   carried_in: 2,
                   total_allowance: 7,
@@ -73,8 +75,6 @@ acceptance("Admin - Topic reply limits", function (needs) {
             has_previous: false,
             has_more: false,
             query,
-            period_start: "2026-07-01",
-            next_credit_at: "2026-08-01T00:00:00.000Z",
           },
         });
       }

@@ -1,6 +1,7 @@
 # NEoWaveChart Django integration review
 
-No Django source was modified.
+Django now sends an authoritative, idempotent reply-limit entitlement feed to
+Discourse.
 
 ## Subscription model reviewed
 
@@ -24,47 +25,55 @@ active subscriptions to the highest forum tier and emits exactly one of:
 - `forum_master`
 - `forum_elite`
 
-An hourly Celery reconciliation uses the Discourse API to add and remove all
+The five-minute Celery reconciliation uses the Discourse API to add and remove all
 managed groups after updating expiration state. Users without an extra forum
 entitlement receive `base`.
 
 ## Production decision
 
-Use UTC calendar months and the existing group boundary. No new Django endpoint
-is required.
+Django owns entitlement identity and time. For each user it selects the newest
+active subscription within the highest active forum tier and sends:
 
-- Django remains authoritative for whether the subscriber is eligible and which
-  tier group applies.
-- Discourse observes group intervals, grants only eligible calendar months, and
-  remains authoritative for committed reply transactions and carryover.
-- Removing a group deletes its available allowance and carryover immediately.
-- Re-adding it starts a new subscription ledger with the current month's fresh
-  allowance and no carryover, even when re-added in the same month.
-- A tier change closes one group ledger and opens another; balances are not
-  combined because each configured group has its own independent rule.
+- Django user ID (the DiscourseConnect external ID);
+- immutable subscription row ID;
+- selected Discourse group name;
+- exact `Subscription.start_date`;
+- exact `Subscription.end_date`, when present.
 
-This avoids sending consumption state to Django, avoids a second shared secret,
-and keeps enforcement atomic with post creation. The group removal emitted by
-Django is the authoritative expiration signal and the group addition is the
-authoritative fresh-subscription signal.
+Discourse owns counters, carryover, and atomic post enforcement. Consumption is
+never sent back to Django.
 
 ## Subscription reset boundary
 
-The requested policy says "each month" and "next month", so a UTC calendar month
-is explicit and deterministic. The current Django data does not provide a stable
-cross-system renewal-period identifier, so the existing managed-group boundary
-defines subscription continuity. A removal intentionally erases the Discourse
-balance; a later addition intentionally begins fresh.
+The immutable subscription row ID is the ledger identity. Allowances are added
+at `start_date + N calendar months`, preserving the original day/time where the
+calendar permits. January 31 therefore produces February 28/29 and then March
+31, rather than drifting permanently to the 28th.
 
-If the product later changes to billing-anniversary allowances, add an immutable
-Django entitlement-period UUID and deliver it to a narrow authenticated,
-idempotent plugin endpoint. Preserve old period ledgers, record Django event IDs,
-and explicitly define upgrade/downgrade behavior. Do not overload group sync with
-an inferred reset.
+The subscription interval is half-open: `[start_date, end_date)`. If `end_date`
+equals the next anniversary, that expiring subscription does not receive
+another allowance at that same instant. A new subscription row has a new ID and
+starts with its configured base allowance and zero carryover.
+
+Discourse computes missing cycles lazily under the same database lock used for
+reply creation. There is deliberately no per-user reset cron job to miss,
+duplicate, or run late.
+
+## Delivery and reconciliation
+
+`Forum.signals` queues an immediate single-user synchronization after a
+subscription transaction commits. `Forum.tasks.sync_discourse_groups` remains
+the five-minute full reconciliation and sends entitlements in batches of 200.
+The plugin endpoint accepts up to 500.
+
+The same Discourse API key already used by Django should be changed to a granular
+key containing the required group-management scopes plus
+`topic reply limits / sync entitlements`. The acting API user must be an
+administrator.
 
 ## API use
 
-Django may manage topic rule sets through the existing administrator JSON API
+Django may also manage topic rule sets through the existing administrator JSON API
 using a dedicated Discourse API key with only the plugin's `read_rules` and/or
 `manage_rules` scopes. Rule sets do not need to be resent on every subscription
 change because the existing group synchronization changes eligibility.
@@ -73,6 +82,7 @@ Operational recommendations:
 
 - require HTTPS and keep SSO/API secrets outside source control;
 - alert on missing managed groups and partial synchronization failures;
-- retain hourly reconciliation even though login-time SSO also updates groups;
+- retain five-minute reconciliation even though subscription changes also
+  enqueue an immediate single-user sync;
 - batch large membership reconciliations;
 - align Django's exact expiration boundary in one shared entitlement predicate.

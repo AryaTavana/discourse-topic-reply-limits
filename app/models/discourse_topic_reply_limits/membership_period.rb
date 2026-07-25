@@ -16,13 +16,17 @@ module DiscourseTopicReplyLimits
         if current
           current
         else
+          latest_closed =
+            where(user_id:, group_id:)
+              .where.not(ends_at: nil)
+              .order(ends_at: :desc)
+              .first
+          effective_start = [at, latest_closed&.ends_at].compact.max
           # A closed interval proves this is a later subscription. Clear any
           # stale ledger left by an older plugin version before starting fresh.
-          if where(user_id:, group_id:).where.not(ends_at: nil).exists?
-            Usage.where(user_id:, group_id:).delete_all
-          end
+          Usage.where(user_id:, group_id:).delete_all if latest_closed
           create_or_find_by!(user_id:, group_id:, ends_at: nil) do |period|
-            period.starts_at = at
+            period.starts_at = effective_start
           end
         end
       end
@@ -56,21 +60,17 @@ module DiscourseTopicReplyLimits
       # removal must wait. This makes the membership decision atomic with the
       # surrounding reply transaction without serializing ordinary replies.
       membership =
-        GroupUser
-          .lock("FOR KEY SHARE")
-          .find_by(user_id: user.id, group_id: group.id)
+        GroupUser.lock("FOR KEY SHARE").find_by(
+          user_id: user.id,
+          group_id: group.id
+        )
       return unless membership
 
-      activate!(
-        user_id: user.id,
-        group_id: group.id,
-        at: membership.created_at
-      )
+      activate!(user_id: user.id, group_id: group.id, at: membership.created_at)
     end
 
     def self.bootstrap_group!(group_id)
-      DB.exec(
-        <<~SQL,
+      DB.exec(<<~SQL, group_id:)
           INSERT INTO topic_reply_limit_membership_periods
             (user_id, group_id, starts_at, created_at, updated_at)
           SELECT
@@ -80,8 +80,6 @@ module DiscourseTopicReplyLimits
           WHERE gu.group_id = :group_id
           ON CONFLICT (user_id, group_id) WHERE ends_at IS NULL DO NOTHING
         SQL
-        group_id:
-      )
     end
 
     def self.tracked?(user_id:, group_id:)

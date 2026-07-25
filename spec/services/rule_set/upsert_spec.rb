@@ -32,11 +32,10 @@ RSpec.describe DiscourseTopicReplyLimits::RuleSet::Upsert do
           .pluck(:group_id, :reply_limit, :warning_percentage)
       ).to contain_exactly([group.id, 5, 80], [second_group.id, 20, 75])
       expect(
-        DiscourseTopicReplyLimits::RulePeriod.where(topic_id: topic.id).pluck(
-          :group_id,
-          :reply_limit,
-          :warning_percentage
-        )
+        DiscourseTopicReplyLimits::RuleRevision.where(
+          topic_id: topic.id,
+          active: true
+        ).pluck(:group_id, :reply_limit, :warning_percentage)
       ).to contain_exactly([group.id, 5, 80], [second_group.id, 20, 75])
     end
 
@@ -77,30 +76,25 @@ RSpec.describe DiscourseTopicReplyLimits::RuleSet::Upsert do
         )
       ).to contain_exactly([group.id, 10, 90], [replacement_group.id, 30, 70])
       expect(
-        DiscourseTopicReplyLimits::RulePeriod.find_by(
-          topic_id: topic.id,
-          group_id: group.id,
-          period_start: DiscourseTopicReplyLimits::Calendar.period_start
-        )
-      ).to have_attributes(reply_limit: 2, warning_percentage: 50)
-
-      updated_rule =
-        DiscourseTopicReplyLimits::Rule.find_by(topic:, group:)
-      next_period =
-        DiscourseTopicReplyLimits::Calendar.next_period(
-          DiscourseTopicReplyLimits::Calendar.period_start
-        )
-      DiscourseTopicReplyLimits::RulePeriod.ensure_through!(
-        rule: updated_rule,
-        through: next_period
-      )
+        DiscourseTopicReplyLimits::RuleRevision
+          .where(topic_id: topic.id, group_id: group.id, active: true)
+          .order(:effective_at, :id)
+          .pluck(:reply_limit, :warning_percentage)
+      ).to eq([[2, 50], [10, 90]])
       expect(
-        DiscourseTopicReplyLimits::RulePeriod.find_by(
+        DiscourseTopicReplyLimits::RuleRevision.where(
           topic_id: topic.id,
-          group_id: group.id,
-          period_start: next_period
-        )
-      ).to have_attributes(reply_limit: 10, warning_percentage: 90)
+          group_id: second_group.id,
+          active: false
+        ).exists?
+      ).to eq(true)
+      expect(
+        DiscourseTopicReplyLimits::RuleRevision.where(
+          topic_id: topic.id,
+          group_id: replacement_group.id,
+          active: true
+        ).pluck(:reply_limit, :warning_percentage)
+      ).to contain_exactly([30, 70])
     end
 
     it "bootstraps current membership periods for subscription groups" do

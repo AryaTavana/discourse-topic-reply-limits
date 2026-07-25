@@ -2,7 +2,7 @@ import { helper } from "@ember/component/helper";
 import dIcon from "discourse/ui-kit/helpers/d-icon";
 import I18n, { i18n } from "discourse-i18n";
 
-const formatUtcDateTime = helper(([value]) => {
+const formatDateTime = helper(([value]) => {
   if (!value) {
     return "";
   }
@@ -19,7 +19,6 @@ const formatUtcDateTime = helper(([value]) => {
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-    timeZone: "UTC",
   };
   const locale = I18n.currentLocale()?.replaceAll("_", "-");
   let formatted;
@@ -32,7 +31,7 @@ const formatUtcDateTime = helper(([value]) => {
     formatted = new Intl.DateTimeFormat(undefined, options).format(date);
   }
 
-  return `${formatted} UTC`;
+  return formatted;
 });
 
 export default <template>
@@ -50,19 +49,31 @@ export default <template>
         <strong class="topic-reply-limits-notice__title">
           {{i18n "discourse_topic_reply_limits.reached_title"}}
         </strong>
-        <span class="topic-reply-limits-notice__message">
-          {{i18n "discourse_topic_reply_limits.reached"}}
-        </span>
-        <span
-          class="topic-reply-limits-notice__message topic-reply-limits-notice__next-credit"
-        >
-          {{i18n
-            "discourse_topic_reply_limits.next_credit"
-            date=(formatUtcDateTime
-              @outletArgs.model.reply_limit.next_credit_at
-            )
-          }}
-        </span>
+        {{#if @outletArgs.model.reply_limit.unavailable}}
+          <span class="topic-reply-limits-notice__message">
+            {{i18n "discourse_topic_reply_limits.subscription_inactive"}}
+          </span>
+        {{else}}
+          <span class="topic-reply-limits-notice__message">
+            {{i18n "discourse_topic_reply_limits.reached"}}
+          </span>
+        {{/if}}
+        {{#if @outletArgs.model.reply_limit.next_credit_at}}
+          <span
+            class="topic-reply-limits-notice__message topic-reply-limits-notice__next-credit"
+          >
+            {{i18n
+              "discourse_topic_reply_limits.next_credit"
+              date=(formatDateTime
+                @outletArgs.model.reply_limit.next_credit_at
+              )
+            }}
+          </span>
+        {{else}}
+          <span class="topic-reply-limits-notice__message">
+            {{i18n "discourse_topic_reply_limits.renewal_required"}}
+          </span>
+        {{/if}}
         <span class="topic-reply-limits-notice__detail">
           {{i18n "discourse_topic_reply_limits.rollover_explanation"}}
         </span>
@@ -115,16 +126,20 @@ export default <template>
               "discourse_topic_reply_limits.subscription_reset_explanation"
             }}
           </span>
-          <span
-            class="topic-reply-limits-notice__detail topic-reply-limits-notice__next-credit"
-          >
-            {{i18n
-              "discourse_topic_reply_limits.next_credit"
-              date=(formatUtcDateTime
-                @outletArgs.model.reply_limit.next_credit_at
-              )
-            }}
-          </span>
+          {{#if warning.next_credit_at}}
+            <span
+              class="topic-reply-limits-notice__detail topic-reply-limits-notice__next-credit"
+            >
+              {{i18n
+                "discourse_topic_reply_limits.next_credit"
+                date=(formatDateTime warning.next_credit_at)
+              }}
+            </span>
+          {{else}}
+            <span class="topic-reply-limits-notice__detail">
+              {{i18n "discourse_topic_reply_limits.renewal_required"}}
+            </span>
+          {{/if}}
         </div>
       </div>
     {{/each}}

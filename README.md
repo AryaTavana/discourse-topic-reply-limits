@@ -9,18 +9,18 @@ grant access to topics.
 
 - One or more group-specific limits for any regular topic.
 - Topic and group search/select controls in Discourse Admin.
-- UTC calendar-month allowances with unlimited unused-reply carryover.
-- Subscription-group interval tracking: carryover lasts only while membership
-  remains continuous; expiration removes the balance and a new subscription
-  starts fresh.
+- Allowance cycles anchored to the exact subscription purchase timestamp, with
+  unlimited unused-reply carryover.
+- Authoritative Django entitlement synchronization: subscription ID, tier,
+  purchase time, and expiration are delivered through a narrow idempotent API.
 - Configurable warning threshold per group (80% by default), calculated against
-  the month's new allowance plus carryover.
+  the cycle's new allowance plus carryover.
 - Server-side enforcement for web, mobile, API, and email-created replies.
 - Immediate client-side warning updates and reply-composer disabling.
 - Staff bypass for administrators and moderators.
-- Monthly created-reply counters: deletion never restores quota and editing
+- Per-cycle created-reply counters: deletion never restores quota and editing
   never consumes quota.
-- Current-month backfill includes regular replies created during the current
+- Current-cycle backfill includes regular replies created during the current
   subscription before the rule became active, including soft-deleted replies.
 - Transaction-scoped locking, database uniqueness, and check constraints.
 - Staff action audit entries for rule changes.
@@ -73,12 +73,12 @@ bundle exec rails db:migrate
    already enabled.
 2. Open **Admin > Plugins > Topic reply limits > Reply limit rules**.
 3. Select an existing regular topic.
-4. Add one or more group assignments, each with its own monthly reply allowance
-   and warning percentage.
+4. Add one or more group assignments, each with its own reply allowance per
+   subscription cycle and warning percentage.
 5. Save the rule set.
 
 Open **Admin > Plugins > Topic reply limits > User usage** to review each
-active user's monthly allowance, carryover, used replies, current remaining
+active user's cycle dates, allowance, carryover, used replies, current remaining
 balance, status, and last reply for every matching topic/group assignment.
 Administrators and moderators are omitted because they bypass limits. Users
 whose subscription group has been removed are omitted because expiration
@@ -86,7 +86,7 @@ removes their active allowance.
 
 For example, one topic can have these independent assignments:
 
-| Group | Monthly allowance | Warning |
+| Group | Allowance per subscription cycle | Warning |
 | --- | ---: | ---: |
 | `forum_general` | 5 | 80% |
 | `forum_advanced` | 20 | 80% |
@@ -99,8 +99,8 @@ should retain that permission, and configure category security separately.
 
 ## User behavior
 
-Each matching topic/group assignment grants its configured allowance once per
-UTC calendar month:
+Each matching topic/group assignment grants its configured allowance on the
+exact monthly anniversary of the subscription purchase:
 
 - Creating a reply consumes one unit.
 - Editing a reply consumes nothing.
@@ -109,12 +109,15 @@ UTC calendar month:
   3 carried replies; the next eligible month starts with 8 available.
 - If Django removes the user from the assigned group, all available replies and
   carryover for that group are removed immediately.
-- Rejoining after expiration starts a new subscription ledger with the fresh
-  monthly allowance and zero carryover, even within the same calendar month.
+- A July 25 purchase renews its allowance on August 25 at the same time, then
+  September 25, while that subscription remains active.
+- A subscription ending exactly at its next anniversary does not receive a new
+  allowance at the same instant. A renewal/new purchase starts a fresh ledger
+  from the new purchase timestamp.
 - Administrators and moderators bypass every rule.
 - Private messages and non-regular system posts are not counted.
 
-At the configured threshold, the topic explains the monthly/carryover breakdown,
+At the configured threshold, the topic explains the cycle/carryover breakdown,
 remaining count, rollover behavior, subscription-expiration reset, and next
 credit date. At the limit, the topic's reply controls are disabled, a compact
 status icon appears beside the bottom topic controls with an explanatory
@@ -133,13 +136,17 @@ The installation migration creates:
 
 - `topic_reply_limit_rules`: one unique `(topic_id, group_id)` assignment with
   positive `reply_limit`, `warning_percentage` from 1 through 99, and timestamps.
-- `topic_reply_limit_rule_periods`: immutable monthly snapshots of each rule so
-  later edits do not rewrite an allowance already granted.
-- `topic_reply_limit_membership_periods`: group-membership intervals used to
-  distinguish eligible and inactive calendar months.
-- `topic_reply_limit_period_usages`: one unique
-  `(user_id, topic_id, group_id, period_start)` monthly ledger row with the base
-  allowance, carried-in balance, created-reply count, and last reply timestamp.
+- `topic_reply_limit_entitlements`: the current authoritative Django
+  subscription ID, user/group mapping, exact purchase timestamp, expiration,
+  and revocation marker.
+- `topic_reply_limit_rule_revisions`: append-only effective-dated rule values,
+  so an edit does not rewrite an already-open subscription cycle.
+- `topic_reply_limit_cycle_usages`: immutable subscription-cycle ledger rows,
+  including exact cycle bounds, subscription ID, allowance, carry-in,
+  created-reply count, and last reply timestamp.
+- `topic_reply_limit_rule_periods`, `topic_reply_limit_membership_periods`, and
+  `topic_reply_limit_period_usages`: pre-2.0 calendar-month rows retained
+  untouched for rollback and audit safety; they are no longer enforced.
 - `topic_reply_limit_usages`: the pre-1.1 lifetime rows retained untouched for
   zero-downtime rollout and rollback/audit safety; they are no longer enforced.
 
@@ -164,6 +171,7 @@ CSRF/API-key protections:
 - `PUT /admin/plugins/discourse-topic-reply-limits/rule-sets/:topic_id.json`
 - `DELETE /admin/plugins/discourse-topic-reply-limits/rule-sets/:topic_id.json`
 - `GET /admin/plugins/discourse-topic-reply-limits/usage.json`
+- `PUT /admin/plugins/discourse-topic-reply-limits/entitlements/sync.json`
 
 The usage endpoint accepts `q`, `page`, and `per_page` parameters. Search
 matches usernames, display names, topic titles, and group names. Page size
@@ -191,20 +199,42 @@ GET /topic-reply-limits/topics/:topic_id/status.json
 
 The endpoint never exposes another user's usage.
 
-For server integrations, create a granular Discourse API key and select the
+For rule integrations, create a granular Discourse API key and select the
 plugin-provided `topic reply limits / read rules` and/or `manage rules` scopes.
 Use `topic reply limits / read usage` for the usage report. The acting API user
 must still be an administrator. Avoid a global-scope key.
 
+The Django synchronization key additionally needs only
+`topic reply limits / sync entitlements`. The endpoint accepts at most 500
+records per request:
+
+```json
+{
+  "entitlements": [
+    {
+      "user_external_id": "42",
+      "entitlement_id": "781",
+      "group_name": "forum_master",
+      "starts_at": "2026-07-25T14:30:00+00:00",
+      "ends_at": "2026-08-25T14:30:00+00:00"
+    }
+  ]
+}
+```
+
+Send `entitlement_id: null` with the external user ID to revoke an expired
+subscription. Unknown Discourse SSO users are reported and safely retried by
+the next reconciliation.
+
 ## Subscription integration
 
-Django remains the subscription and tier authority; Discourse remains the reply
-ledger and enforcement authority. The existing SSO and hourly API group sync are
-the integration boundary, so no new shared secret or Django endpoint is needed
-for calendar-month allowances. See
-[DJANGO_INTEGRATION.md](docs/DJANGO_INTEGRATION.md) for the reviewed lifecycle
-and the separate design required if allowances later follow individual billing
-anniversaries instead of UTC calendar months.
+Django remains the subscription/tier/time authority; Discourse remains the
+reply-ledger and enforcement authority. NEoWaveChart now sends the selected
+subscription entitlement after subscription changes and reconciles all users
+every five minutes. No reset cron job is required: Discourse materializes the
+correct anniversary cycle atomically when a topic is viewed or a reply is
+created, so a delayed background job cannot miss a boundary. See
+[DJANGO_INTEGRATION.md](docs/DJANGO_INTEGRATION.md).
 
 ## Operations
 

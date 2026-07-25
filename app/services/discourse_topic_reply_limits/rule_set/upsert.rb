@@ -64,11 +64,13 @@ module DiscourseTopicReplyLimits
       end
 
       def replace_rules(topic:, params:)
+        changed_at = Time.zone.now
         group_ids = params.assignments.map(&:group_id)
         removed_rules =
           Rule.where(topic_id: topic.id).where.not(group_id: group_ids).to_a
         removed_rules.each do |rule|
           RulePeriod.ensure_through!(rule:)
+          RuleRevision.record_inactive!(rule, at: changed_at)
         end
         Rule.where(id: removed_rules.map(&:id)).delete_all
 
@@ -79,11 +81,13 @@ module DiscourseTopicReplyLimits
               group_id: assignment.group_id
             )
           RulePeriod.ensure_through!(rule:) if rule.persisted?
+          RuleRevision.ensure_for_rule!(rule) if rule.persisted?
           rule.update!(
             reply_limit: assignment.reply_limit,
             warning_percentage: assignment.warning_percentage
           )
           RulePeriod.ensure_through!(rule:)
+          RuleRevision.record_active!(rule, at: changed_at)
           MembershipPeriod.bootstrap_group!(assignment.group_id)
         end
       end

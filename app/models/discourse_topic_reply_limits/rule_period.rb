@@ -21,9 +21,9 @@ module DiscourseTopicReplyLimits
 
     def self.ensure_through!(rule:, through: Calendar.period_start)
       latest =
-        where(topic_id: rule.topic_id, group_id: rule.group_id)
-          .order(period_start: :desc)
-          .first
+        where(topic_id: rule.topic_id, group_id: rule.group_id).order(
+          period_start: :desc
+        ).first
       first_period = Calendar.period_start(rule.created_at)
       next_unrecorded =
         latest ? Calendar.next_period(latest.period_start) : first_period

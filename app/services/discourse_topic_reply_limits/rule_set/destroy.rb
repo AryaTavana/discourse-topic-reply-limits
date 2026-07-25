@@ -43,7 +43,11 @@ module DiscourseTopicReplyLimits
       end
 
       def destroy_rules(rules:)
-        rules.each { |rule| RulePeriod.ensure_through!(rule:) }
+        changed_at = Time.zone.now
+        rules.each do |rule|
+          RulePeriod.ensure_through!(rule:)
+          RuleRevision.record_inactive!(rule, at: changed_at)
+        end
         rules.destroy_all
       end
     end

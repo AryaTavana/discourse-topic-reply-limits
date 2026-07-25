@@ -1,10 +1,12 @@
 en:
   site_settings:
-    topic_reply_limits_enabled: "Enable monthly per-topic, per-group reply allowances with carryover."
+    topic_reply_limits_enabled: "Enable subscription-cycle per-topic, per-group reply allowances with carryover."
   discourse_topic_reply_limits:
     errors:
       invalid_groups: "One or more selected groups do not exist."
-      limit_reached: "You have used all replies available for this topic this month. Your next monthly allowance is added next month if your subscription remains active. Expired subscriptions lose all available and carried replies; a new subscription starts fresh."
+      limit_reached: "You have no replies remaining for this topic in your current subscription cycle. Your next allowance is based on your subscription purchase time. Expired subscriptions lose all available and carried replies; a new subscription starts fresh."
+      entitlement_group_missing: "The Discourse group “%{group}” does not exist."
+      entitlement_sync_failed: "The subscription entitlement sync could not be completed."
   errors:
     messages:
       duplicate_groups: "must not contain the same group more than once"

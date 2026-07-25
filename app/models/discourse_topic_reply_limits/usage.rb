@@ -48,7 +48,12 @@ module DiscourseTopicReplyLimits
       with_locked_current_for_rules!(user:, topic:, rules:, at:) { |rows| rows }
     end
 
-    def self.with_locked_current_for_rules!(user:, topic:, rules:, at: Time.zone.now)
+    def self.with_locked_current_for_rules!(
+      user:,
+      topic:,
+      rules:,
+      at: Time.zone.now
+    )
       transaction do
         acquire_user_topic_lock!(user_id: user.id, topic_id: topic.id)
         rows =
@@ -67,20 +72,20 @@ module DiscourseTopicReplyLimits
       RulePeriod.ensure_through!(rule:, through: current_period)
 
       previous =
-        where(user_id: user.id, topic_id: topic.id, group_id: rule.group_id)
-          .order(period_start: :desc)
-          .first
+        where(
+          user_id: user.id,
+          topic_id: topic.id,
+          group_id: rule.group_id
+        ).order(period_start: :desc).first
 
       snapshots =
         RulePeriod
           .where(topic_id: topic.id, group_id: rule.group_id)
           .where("period_start <= ?", current_period)
           .order(:period_start)
-      snapshots = snapshots.where("period_start > ?", previous.period_start) if previous
-      snapshots = eligible_snapshots(
-        membership:,
-        snapshots: snapshots.to_a
-      )
+      snapshots =
+        snapshots.where("period_start > ?", previous.period_start) if previous
+      snapshots = eligible_snapshots(membership:, snapshots: snapshots.to_a)
       historical_stats =
         historical_reply_stats_by_period(
           user:,
@@ -133,10 +138,7 @@ module DiscourseTopicReplyLimits
         period_start = Calendar.period_time(snapshot.period_start)
         period_end = Calendar.next_credit_at(snapshot.period_start)
         membership.starts_at < period_end &&
-          (
-            membership.ends_at.nil? ||
-              membership.ends_at > period_start
-          )
+          (membership.ends_at.nil? || membership.ends_at > period_start)
       end
     end
 
@@ -148,25 +150,29 @@ module DiscourseTopicReplyLimits
     )
       return {} if period_starts.empty?
 
-      period_sql =
-        Arel.sql("DATE_TRUNC('month', posts.created_at)::date")
-      range_start =
-        [Calendar.period_time(period_starts.min), membership_started_at].max
+      period_sql = Arel.sql("DATE_TRUNC('month', posts.created_at)::date")
+      range_start = [
+        Calendar.period_time(period_starts.min),
+        membership_started_at
+      ].max
       rows =
         Post
-        .with_deleted
-        .where(
-          user_id: user.id,
-          topic_id: topic.id,
-          post_type: Post.types[:regular]
-        )
-        .where.not(post_number: 1)
-        .where(
-          created_at:
-            range_start...Calendar.next_credit_at(period_starts.max)
-        )
-        .group(period_sql)
-        .pluck(period_sql, Arel.sql("COUNT(*)"), Arel.sql("MAX(posts.created_at)"))
+          .with_deleted
+          .where(
+            user_id: user.id,
+            topic_id: topic.id,
+            post_type: Post.types[:regular]
+          )
+          .where.not(post_number: 1)
+          .where(
+            created_at: range_start...Calendar.next_credit_at(period_starts.max)
+          )
+          .group(period_sql)
+          .pluck(
+            period_sql,
+            Arel.sql("COUNT(*)"),
+            Arel.sql("MAX(posts.created_at)")
+          )
 
       rows.to_h do |period_start, count, last_reply_at|
         [period_start.to_date, [count, last_reply_at]]

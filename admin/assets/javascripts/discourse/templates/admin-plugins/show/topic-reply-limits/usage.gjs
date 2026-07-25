@@ -16,25 +16,6 @@ export default <template>
   />
 
   <div class="admin-config-page__main-area topic-reply-limit-usage">
-    <div class="topic-reply-limit-usage__period">
-      <span class="topic-reply-limit-usage__period-label">
-        {{i18n "discourse_topic_reply_limits.admin.usage.current_period"}}
-      </span>
-      <strong>
-        {{dFormatDate
-          @controller.report.meta.period_start
-          format="medium"
-          leaveAgo="true"
-        }}
-        –
-        {{dFormatDate
-          @controller.report.meta.next_credit_at
-          format="medium"
-          leaveAgo="true"
-        }}
-      </strong>
-    </div>
-
     <form
       class="topic-reply-limit-usage__filter"
       {{on "submit" @controller.search}}
@@ -100,6 +81,9 @@ export default <template>
                 <th class="d-table__header-cell">
                   {{i18n "discourse_topic_reply_limits.admin.usage.group"}}
                 </th>
+                <th class="d-table__header-cell">
+                  {{i18n "discourse_topic_reply_limits.admin.usage.cycle"}}
+                </th>
                 <th class="d-table__header-cell --numeric">
                   {{i18n "discourse_topic_reply_limits.admin.usage.monthly"}}
                 </th>
@@ -151,6 +135,19 @@ export default <template>
                     </a>
                   </td>
                   <td class="d-table__cell">{{record.group.name}}</td>
+                  <td class="d-table__cell">
+                    {{dFormatDate
+                      record.cycle_started_at
+                      format="medium"
+                      leaveAgo="true"
+                    }}
+                    –
+                    {{dFormatDate
+                      record.cycle_ends_at
+                      format="medium"
+                      leaveAgo="true"
+                    }}
+                  </td>
                   <td class="d-table__cell --numeric">
                     {{record.monthly_allowance}}
                   </td>

@@ -15,12 +15,14 @@ module DiscourseTopicReplyLimits
         )
       return true if rules.empty?
 
-      Usage.with_locked_current_for_rules!(
+      CycleUsage.with_locked_current_for_rules!(
         user: post.user,
         topic: post.topic,
         rules:
       ) do |usages|
-        return false if usages.values.any? { |usage| usage.blank? || usage.remaining <= 0 }
+        if usages.values.any? { |usage| usage.blank? || usage.remaining <= 0 }
+          return false
+        end
 
         usages.each_value do |usage|
           usage.update!(

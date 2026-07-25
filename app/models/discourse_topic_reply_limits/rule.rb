@@ -25,9 +25,29 @@ module DiscourseTopicReplyLimits
               }
 
     def self.for_user_and_topic(user, topic_id)
-      where(topic_id:)
-        .order(:group_id)
-        .select { |rule| user.in_any_groups?([rule.group_id]) }
+      entitlement_group_id = Entitlement.find_by(user_id: user.id)&.group_id
+      group_ids =
+        GroupUser.where(user_id: user.id).pluck(:group_id) +
+          [entitlement_group_id]
+      where(topic_id:, group_id: group_ids.compact.uniq).order(:group_id).to_a
     end
   end
 end
+
+# == Schema Information
+#
+# Table name: topic_reply_limit_rules
+#
+#  id                 :bigint           not null, primary key
+#  reply_limit        :integer          not null
+#  warning_percentage :integer          default(80), not null
+#  created_at         :datetime         not null
+#  updated_at         :datetime         not null
+#  group_id           :bigint           not null
+#  topic_id           :bigint           not null
+#
+# Indexes
+#
+#  index_topic_reply_limit_rules_on_group_id               (group_id)
+#  index_topic_reply_limit_rules_on_topic_id_and_group_id  (topic_id,group_id) UNIQUE
+#

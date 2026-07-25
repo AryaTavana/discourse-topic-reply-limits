@@ -1,4 +1,44 @@
-# Senior review record for 1.1
+# Senior review record
+
+## 2.0 subscription-anniversary review
+
+Three additional production review passes were completed for 2.0.
+
+### Pass 1 — entitlement architecture and accounting
+
+- Replaced UTC calendar boundaries with exact subscription-anniversary cycles
+  derived from Django's immutable subscription ID and purchase timestamp.
+- Used original-anchor calendar arithmetic to prevent January 31 → February 28
+  from drifting to March 28.
+- Defined the active subscription as `[starts_at, ends_at)`, so an expiration
+  exactly at the next anniversary cannot grant another allowance.
+- Kept carryover only within one entitlement ID and made a new purchase start
+  with a fresh ledger.
+- Preserved all former lifetime/calendar tables for rollback and audit.
+
+### Pass 2 — concurrency, security, and integration
+
+- Added a narrow admin-only, granular API-key scope with validated batches,
+  idempotent upsert/revocation, unknown-user reporting, and revocation
+  tombstones.
+- Serialized entitlement transitions with reply accounting locks and ordered
+  multi-row locks to avoid cross-request deadlocks.
+- Added immediate post-commit Django synchronization plus five-minute full
+  reconciliation, including subscription transfers and deletions.
+- Kept reply consumption exclusively in Discourse so post creation and counter
+  increments remain one transaction.
+
+### Pass 3 — UX, performance, and compatibility
+
+- Added local exact next-credit dates, renewal/expiration explanations, and
+  automatic open-topic refresh at either the next credit or subscription end.
+- Added exact cycle bounds to the paginated admin usage report and replaced a
+  fragile selected-column alias with an explicit rule/user row carrier.
+- Batched Django entitlement delivery and SSO-record lookup.
+- Verified the additive migration in both directions, Ruby/JavaScript lint,
+  67 RSpec examples, 12 QUnit tests, and the full 152-test Django suite.
+
+## 1.1 monthly-ledger review
 
 Three improvement passes were performed against the current Discourse checkout.
 

@@ -33,15 +33,23 @@ RSpec.describe DiscourseTopicReplyLimits::RuleSet::Destroy do
         DiscourseTopicReplyLimits::Rule.where(topic:).count
       }.from(2).to(0)
       expect(result).to run_successfully
+      expect(
+        DiscourseTopicReplyLimits::RuleRevision.where(
+          topic_id: topic.id,
+          active: false
+        ).pluck(:group_id)
+      ).to contain_exactly(group.id, second_group.id)
     end
 
     it "retains usage history" do
       usage =
-        DiscourseTopicReplyLimits::Usage.create!(
+        DiscourseTopicReplyLimits::CycleUsage.create!(
           user: Fabricate(:user),
           topic:,
           group:,
-          period_start: DiscourseTopicReplyLimits::Calendar.period_start,
+          entitlement_external_id: "django-subscription:retained",
+          cycle_started_at: 1.day.ago,
+          cycle_ends_at: 1.month.from_now,
           monthly_allowance: 5,
           warning_percentage: 80,
           carried_in: 2,

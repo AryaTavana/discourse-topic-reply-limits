@@ -23,6 +23,7 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
                     remaining=4
                     monthly_reply_limit=20
                     carried_in=3
+                    next_credit_at="2026-08-01T00:00:00.000Z"
                   )
                 )
               )
@@ -55,7 +56,7 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
     assert
       .dom(".topic-reply-limits-notice.--warning .topic-reply-limits-notice__next-credit")
       .includesText("August 1, 2026")
-      .includesText("00:00 UTC")
+      .doesNotIncludeText("UTC")
       .doesNotIncludeText("just now")
       .doesNotIncludeText("<span");
   });
@@ -96,8 +97,35 @@ module("Integration | Connector | reply-limit-notice", function (hooks) {
     assert
       .dom(".topic-reply-limits-notice.--reached .topic-reply-limits-notice__next-credit")
       .includesText("August 1, 2026")
-      .includesText("00:00 UTC")
+      .doesNotIncludeText("UTC")
       .doesNotIncludeText("just now")
       .doesNotIncludeText("<span");
+  });
+
+  test("explains expiration when no later allowance is scheduled", async function (assert) {
+    await render(
+      <template>
+        <ReplyLimitNotice
+          @outletArgs={{hash
+            model=(hash
+              reply_limit=(hash
+                reached=true
+                unavailable=true
+                next_credit_at=null
+                warnings=(array)
+              )
+            )
+          }}
+        />
+      </template>
+    );
+
+    assert
+      .dom(".topic-reply-limits-notice.--reached")
+      .includesText(
+        i18n("discourse_topic_reply_limits.subscription_inactive")
+      )
+      .includesText(i18n("discourse_topic_reply_limits.renewal_required"));
+    assert.dom(".topic-reply-limits-notice__next-credit").doesNotExist();
   });
 });

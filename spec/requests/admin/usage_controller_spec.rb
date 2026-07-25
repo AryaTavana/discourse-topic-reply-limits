@@ -20,18 +20,40 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::UsageController do
     )
   end
 
-  it "lists current used and remaining balances for an admin" do
-    DiscourseTopicReplyLimits::Usage.create!(
-      user:,
+  def create_cycle_usage(
+    target_user: user,
+    target_group: group,
+    monthly_allowance:,
+    carried_in:,
+    reply_count:
+  )
+    entitlement =
+      DiscourseTopicReplyLimits::Entitlement.current_for(
+        user: target_user,
+        group: target_group
+      )
+    cycle =
+      DiscourseTopicReplyLimits::SubscriptionCycle.at(
+        anchor: entitlement.starts_at
+      )
+
+    DiscourseTopicReplyLimits::CycleUsage.create!(
+      user: target_user,
       topic:,
-      group:,
-      period_start: DiscourseTopicReplyLimits::Calendar.period_start,
-      monthly_allowance: 5,
+      group: target_group,
+      entitlement_external_id: entitlement.external_id,
+      cycle_started_at: cycle[:started_at],
+      cycle_ends_at: cycle[:ends_at],
+      monthly_allowance:,
       warning_percentage: 80,
-      carried_in: 2,
-      reply_count: 3,
+      carried_in:,
+      reply_count:,
       last_reply_at: 1.hour.ago
     )
+  end
+
+  it "lists current used and remaining balances for an admin" do
+    create_cycle_usage(monthly_allowance: 5, carried_in: 2, reply_count: 3)
     sign_in(admin)
 
     get "/admin/plugins/discourse-topic-reply-limits/usage.json"
@@ -43,6 +65,8 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::UsageController do
         .fetch("usage_records")
         .find { |row| row.dig("user", "id") == user.id }
     expect(record).to include(
+      "cycle_started_at" => be_present,
+      "cycle_ends_at" => be_present,
       "monthly_allowance" => 5,
       "carried_in" => 2,
       "total_allowance" => 7,
@@ -154,13 +178,9 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::UsageController do
       reply_limit: 20,
       warning_percentage: 80
     )
-    DiscourseTopicReplyLimits::Usage.create!(
-      user:,
-      topic:,
-      group: second_group,
-      period_start: DiscourseTopicReplyLimits::Calendar.period_start,
+    create_cycle_usage(
+      target_group: second_group,
       monthly_allowance: 20,
-      warning_percentage: 80,
       carried_in: 0,
       reply_count: 4
     )

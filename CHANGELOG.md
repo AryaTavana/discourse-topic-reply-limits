@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.0.0
+
+- Anchor every allowance cycle to the exact Django subscription purchase
+  timestamp instead of the UTC calendar month.
+- Add an admin-only, granular-scope entitlement sync API for subscription ID,
+  tier group, start time, end time, and revocation.
+- Start a new subscription with a fresh ledger; retain unlimited carryover only
+  across cycles of the same active subscription.
+- Handle end-of-month anniversaries without drift (January 31 → February
+  28/29 → March 31).
+- Show exact next-credit times in the user's local browser timezone and show a
+  renewal explanation when the subscription ends before another credit.
+- Add exact subscription-cycle dates to the admin usage report.
+- Retain the former UTC-calendar ledger untouched for rollback and audit.
+
 ## 1.2.0
 
 - Add an admin-only **User usage** page with current balances for every active

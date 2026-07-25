@@ -41,17 +41,19 @@ export default {
       let currentTopic;
       let refreshTimer;
 
-      const scheduleMonthlyRefresh = (topic) => {
+      const scheduleAllowanceRefresh = (topic) => {
         clearTimeout(refreshTimer);
-        const nextCreditAt = topic?.reply_limit?.next_credit_at;
-        if (!nextCreditAt) {
+        const refreshAt =
+          topic?.reply_limit?.refresh_at ??
+          topic?.reply_limit?.next_credit_at;
+        if (!refreshAt) {
           return;
         }
 
-        const remainingDelay = new Date(nextCreditAt).getTime() - Date.now();
+        const remainingDelay = new Date(refreshAt).getTime() - Date.now();
         if (remainingDelay > MAX_REFRESH_DELAY) {
           refreshTimer = setTimeout(
-            () => scheduleMonthlyRefresh(topic),
+            () => scheduleAllowanceRefresh(topic),
             MAX_REFRESH_DELAY
           );
           return;
@@ -72,10 +74,10 @@ export default {
 
             topic.set("reply_limit", result.reply_limit);
             topic.set("details.can_create_post", result.can_create_post);
-            scheduleMonthlyRefresh(topic);
+            scheduleAllowanceRefresh(topic);
           } catch {
             refreshTimer = setTimeout(
-              () => scheduleMonthlyRefresh(topic),
+              () => scheduleAllowanceRefresh(topic),
               60 * 1000
             );
           }
@@ -84,7 +86,7 @@ export default {
 
       api.onAppEvent("page:topic-loaded", (topic) => {
         currentTopic = topic;
-        scheduleMonthlyRefresh(topic);
+        scheduleAllowanceRefresh(topic);
       });
 
       api.onPageChange((url) => {
@@ -112,7 +114,7 @@ export default {
         if (nextState.reached) {
           currentTopic.set("details.can_create_post", false);
         }
-        scheduleMonthlyRefresh(currentTopic);
+        scheduleAllowanceRefresh(currentTopic);
       });
     });
   },

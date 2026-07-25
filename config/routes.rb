@@ -5,7 +5,7 @@ Discourse::Application.routes.draw do
   # of the nested Ember admin routes. API routes below remain JSON-only.
   get "/admin/plugins/discourse-topic-reply-limits/reply-limits(/*path)" =>
         "admin/admin#index",
-      constraints: AdminConstraint.new
+      :constraints => AdminConstraint.new
 
   scope "/admin/plugins/discourse-topic-reply-limits",
         constraints: AdminConstraint.new,
@@ -17,6 +17,8 @@ Discourse::Application.routes.draw do
     get "/rule-sets/:topic_id" =>
           "discourse_topic_reply_limits/admin/rule_sets#show"
     get "/usage" => "discourse_topic_reply_limits/admin/usage#index"
+    put "/entitlements/sync" =>
+          "discourse_topic_reply_limits/admin/entitlements#sync"
     post "/rule-sets" => "discourse_topic_reply_limits/admin/rule_sets#create"
     put "/rule-sets/:topic_id" =>
           "discourse_topic_reply_limits/admin/rule_sets#update"

@@ -15,14 +15,25 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
     monthly_allowance:,
     reply_count:,
     carried_in: 0,
-    warning_percentage: 80,
-    period_start: DiscourseTopicReplyLimits::Calendar.period_start
+    warning_percentage: 80
   )
-    DiscourseTopicReplyLimits::Usage.create!(
+    entitlement =
+      DiscourseTopicReplyLimits::Entitlement.current_for(
+        user:,
+        group: target_group
+      )
+    cycle =
+      DiscourseTopicReplyLimits::SubscriptionCycle.at(
+        anchor: entitlement.starts_at
+      )
+
+    DiscourseTopicReplyLimits::CycleUsage.create!(
       user:,
       topic:,
       group: target_group,
-      period_start:,
+      entitlement_external_id: entitlement.external_id,
+      cycle_started_at: cycle[:started_at],
+      cycle_ends_at: cycle[:ends_at],
       monthly_allowance:,
       warning_percentage:,
       carried_in:,
@@ -47,21 +58,19 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
         reply_count: 16,
         next_credit_at: be_present
       )
-      expect(state[:warnings]).to eq(
-        [
-          {
-            reply_limit: 20,
-            monthly_reply_limit: 20,
-            carried_in: 0,
-            total_allowance: 20,
-            warning_percentage: 80,
-            warning_at: 16,
-            reply_count: 16,
-            remaining: 4,
-            reached: false,
-            warning: true
-          }
-        ]
+      expect(state[:warnings]).to contain_exactly(
+        include(
+          reply_limit: 20,
+          monthly_reply_limit: 20,
+          carried_in: 0,
+          total_allowance: 20,
+          warning_percentage: 80,
+          warning_at: 16,
+          reply_count: 16,
+          remaining: 4,
+          reached: false,
+          warning: true
+        )
       )
     end
 
@@ -72,21 +81,12 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
         reply_limit: 5,
         warning_percentage: 80
       )
-      create_usage(
-        monthly_allowance: 5,
-        carried_in: 2,
-        reply_count: 6
-      )
+      create_usage(monthly_allowance: 5, carried_in: 2, reply_count: 6)
 
       state = described_class.for(user:, topic:)
 
       expect(state[:warnings]).to contain_exactly(
-        include(
-          total_allowance: 7,
-          warning_at: 6,
-          remaining: 1,
-          carried_in: 2
-        )
+        include(total_allowance: 7, warning_at: 6, remaining: 1, carried_in: 2)
       )
     end
 
@@ -97,11 +97,7 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
         reply_limit: 2,
         warning_percentage: 50
       )
-      create_usage(
-        monthly_allowance: 2,
-        reply_count: 2,
-        warning_percentage: 50
-      )
+      create_usage(monthly_allowance: 2, reply_count: 2, warning_percentage: 50)
 
       state = described_class.for(user:, topic:)
 
@@ -169,10 +165,37 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
       expect(described_class.for(user:, topic: private_message)).to be_nil
       expect(described_class.for(user: Fabricate(:user), topic:)).to be_nil
     end
+
+    it "blocks an expired entitlement while membership removal is pending" do
+      DiscourseTopicReplyLimits::Rule.create!(
+        topic:,
+        group:,
+        reply_limit: 5,
+        warning_percentage: 80
+      )
+      DiscourseTopicReplyLimits::Entitlement.create!(
+        user:,
+        group:,
+        external_id: "django-subscription:expired",
+        starts_at: 1.month.ago,
+        ends_at: 1.second.ago
+      )
+
+      state = described_class.for(user:, topic:)
+
+      expect(state).to include(
+        reached: true,
+        unavailable: true,
+        next_credit_at: nil
+      )
+      expect(state[:assignments]).to contain_exactly(
+        include(reached: true, unavailable: true, remaining: 0)
+      )
+    end
   end
 
   describe ".reached?" do
-    it "returns true at the current monthly allowance" do
+    it "returns true at the current cycle allowance" do
       DiscourseTopicReplyLimits::Rule.create!(
         topic:,
         group:,

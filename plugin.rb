@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # name: discourse-topic-reply-limits
-# about: Applies monthly per-topic reply allowances with carryover to selected Discourse groups.
-# version: 1.2.0
+# about: Applies subscription-cycle per-topic reply allowances with carryover to selected Discourse groups.
+# version: 2.0.0
 # authors: Arya Tavana
 # url: https://github.com/AryaTavana/discourse-topic-reply-limits
 # required_version: 3.5.0
@@ -32,9 +32,7 @@ add_api_key_scope(
       ]
     },
     read_usage: {
-      actions: %w[
-        discourse_topic_reply_limits/admin/usage#index
-      ]
+      actions: %w[discourse_topic_reply_limits/admin/usage#index]
     },
     manage_rules: {
       actions: %w[
@@ -42,6 +40,9 @@ add_api_key_scope(
         discourse_topic_reply_limits/admin/rule_sets#update
         discourse_topic_reply_limits/admin/rule_sets#destroy
       ]
+    },
+    sync_entitlements: {
+      actions: %w[discourse_topic_reply_limits/admin/entitlements#sync]
     }
   }
 )
@@ -54,6 +55,7 @@ require_relative "lib/discourse_topic_reply_limits/engine"
 
 after_initialize do
   require_relative "lib/discourse_topic_reply_limits/calendar"
+  require_relative "lib/discourse_topic_reply_limits/subscription_cycle"
   require_relative "lib/discourse_topic_reply_limits/reply_creation_tracker"
   require_relative "lib/discourse_topic_reply_limits/reply_state"
 
@@ -93,11 +95,16 @@ after_initialize do
     DiscourseTopicReplyLimits::RulePeriod.where(group_id: id).delete_all
     DiscourseTopicReplyLimits::MembershipPeriod.where(group_id: id).delete_all
     DiscourseTopicReplyLimits::Usage.where(group_id: id).delete_all
+    DiscourseTopicReplyLimits::CycleUsage.where(group_id: id).delete_all
+    DiscourseTopicReplyLimits::Entitlement.where(group_id: id).delete_all
+    DiscourseTopicReplyLimits::RuleRevision.where(group_id: id).delete_all
   end
 
   add_model_callback(User, :after_destroy) do
     DiscourseTopicReplyLimits::Usage.where(user_id: id).delete_all
     DiscourseTopicReplyLimits::MembershipPeriod.where(user_id: id).delete_all
+    DiscourseTopicReplyLimits::CycleUsage.where(user_id: id).delete_all
+    DiscourseTopicReplyLimits::Entitlement.where(user_id: id).delete_all
     DB.exec("DELETE FROM topic_reply_limit_usages WHERE user_id = ?", id)
   end
 
@@ -105,14 +112,18 @@ after_initialize do
     DiscourseTopicReplyLimits::Rule.where(topic_id: id).delete_all
     DiscourseTopicReplyLimits::RulePeriod.where(topic_id: id).delete_all
     DiscourseTopicReplyLimits::Usage.where(topic_id: id).delete_all
+    DiscourseTopicReplyLimits::CycleUsage.where(topic_id: id).delete_all
+    DiscourseTopicReplyLimits::RuleRevision.where(topic_id: id).delete_all
     DB.exec("DELETE FROM topic_reply_limit_usages WHERE topic_id = ?", id)
   end
 
   add_model_callback(GroupUser, :after_create) do
-    next unless DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
-                  user_id:,
-                  group_id:
-                )
+    unless DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
+             user_id:,
+             group_id:
+           )
+      next
+    end
 
     DiscourseTopicReplyLimits::MembershipPeriod.activate!(
       user_id:,
@@ -122,10 +133,12 @@ after_initialize do
   end
 
   add_model_callback(GroupUser, :before_destroy) do
-    next unless DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
-                  user_id:,
-                  group_id:
-                )
+    unless DiscourseTopicReplyLimits::MembershipPeriod.tracked?(
+             user_id:,
+             group_id:
+           )
+      next
+    end
 
     DiscourseTopicReplyLimits::MembershipPeriod.deactivate!(
       user_id:,

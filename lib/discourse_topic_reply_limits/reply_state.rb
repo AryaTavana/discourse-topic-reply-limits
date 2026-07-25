@@ -12,21 +12,39 @@ module DiscourseTopicReplyLimits
       return if rules.empty?
 
       at = Time.zone.now
-      usages = Usage.current_for_rules!(user:, topic:, rules:, at:)
+      usages = CycleUsage.current_for_rules!(user:, topic:, rules:, at:)
       assignments =
-        rules.filter_map do |rule|
+        rules.map do |rule|
           usage = usages[rule.group_id]
-          assignment_for(usage) if usage
+          entitlement = Entitlement.current_for(user:, group: rule.group, at:)
+          if usage && entitlement
+            assignment_for(usage, entitlement)
+          else
+            unavailable_assignment(rule)
+          end
         end
-      return if assignments.empty?
-
-      next_credit_at = Calendar.next_credit_at(Calendar.period_start(at))
+      next_credit_at =
+        assignments.filter_map { |assignment| assignment[:next_credit_at] }.min
+      refresh_at =
+        assignments
+          .flat_map do |assignment|
+            [assignment[:next_credit_at], assignment[:subscription_ends_at]]
+          end
+          .compact
+          .select { |timestamp| timestamp > at }
+          .min
 
       {
         reached: assignments.any? { |assignment| assignment[:reached] },
-        reply_count: assignments.map { |assignment| assignment[:reply_count] }.max,
-        period_start: Calendar.period_start(at),
+        unavailable: assignments.any? { |assignment| assignment[:unavailable] },
+        reply_count:
+          assignments.map { |assignment| assignment[:reply_count] }.max,
+        period_start:
+          assignments
+            .filter_map { |assignment| assignment[:cycle_started_at] }
+            .min,
         next_credit_at:,
+        refresh_at:,
         assignments:,
         warnings: assignments.select { |assignment| assignment[:warning] }
       }
@@ -36,10 +54,9 @@ module DiscourseTopicReplyLimits
       self.for(user:, topic:)&.fetch(:reached, false) || false
     end
 
-    def self.assignment_for(usage)
+    def self.assignment_for(usage, entitlement)
       total_allowance = usage.total_allowance
-      warning_at =
-        (total_allowance * usage.warning_percentage + 99) / 100
+      warning_at = (total_allowance * usage.warning_percentage + 99) / 100
       remaining = usage.remaining
       reached = remaining.zero?
 
@@ -53,10 +70,32 @@ module DiscourseTopicReplyLimits
         reply_count: usage.reply_count,
         remaining:,
         reached:,
-        warning: !reached && usage.reply_count >= warning_at
+        warning: !reached && usage.reply_count >= warning_at,
+        unavailable: false,
+        cycle_started_at: usage.cycle_started_at,
+        cycle_ends_at: usage.cycle_ends_at,
+        next_credit_at: usage.next_credit_at(entitlement),
+        subscription_ends_at: entitlement.ends_at
       }
     end
 
-    private_class_method :assignment_for
+    def self.unavailable_assignment(rule)
+      {
+        reply_limit: rule.reply_limit,
+        monthly_reply_limit: rule.reply_limit,
+        carried_in: 0,
+        total_allowance: 0,
+        warning_percentage: rule.warning_percentage,
+        warning_at: 0,
+        reply_count: 0,
+        remaining: 0,
+        reached: true,
+        warning: false,
+        unavailable: true,
+        next_credit_at: nil
+      }
+    end
+
+    private_class_method :assignment_for, :unavailable_assignment
   end
 end

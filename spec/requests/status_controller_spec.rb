@@ -18,11 +18,19 @@ RSpec.describe DiscourseTopicReplyLimits::StatusController do
 
   describe "#show" do
     it "returns the current user's topic reply state" do
-      DiscourseTopicReplyLimits::Usage.create!(
+      entitlement =
+        DiscourseTopicReplyLimits::Entitlement.current_for(user:, group:)
+      cycle =
+        DiscourseTopicReplyLimits::SubscriptionCycle.at(
+          anchor: entitlement.starts_at
+        )
+      DiscourseTopicReplyLimits::CycleUsage.create!(
         user:,
         topic:,
         group:,
-        period_start: DiscourseTopicReplyLimits::Calendar.period_start,
+        entitlement_external_id: entitlement.external_id,
+        cycle_started_at: cycle[:started_at],
+        cycle_ends_at: cycle[:ends_at],
         monthly_allowance: 5,
         warning_percentage: 80,
         carried_in: 0,
