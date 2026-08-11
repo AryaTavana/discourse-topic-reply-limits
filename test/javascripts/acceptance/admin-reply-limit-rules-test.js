@@ -141,6 +141,13 @@ acceptance("Admin - Topic reply limits", function (needs) {
       .dom(".topic-reply-limit-usage__table tbody tr")
       .exists({ count: 1 });
     assert
+      .dom(".topic-reply-limit-usage__table-wrapper")
+      .hasAttribute("role", "region")
+      .hasAttribute("tabindex", "0");
+    assert
+      .dom(".topic-reply-limit-usage__table .d-table__mobile-label")
+      .exists({ count: 10 }, "every detail cell has a responsive label");
+    assert
       .dom(".topic-reply-limit-usage__table")
       .includesText("forum_master_user")
       .includesText("Gold Analysis Discussion")

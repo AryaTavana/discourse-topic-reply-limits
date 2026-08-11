@@ -64,7 +64,9 @@
 
 .topic-reply-limit-usage {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1em;
+  min-width: 0;
 
   &__period {
     display: flex;
@@ -119,16 +121,34 @@
   }
 
   &__table-wrapper {
+    box-sizing: border-box;
+    width: 100%;
     max-width: 100%;
     overflow-x: auto;
+    overscroll-behavior-inline: contain;
     border: 1px solid var(--primary-low);
     border-radius: var(--d-border-radius);
+
+    &:focus-visible {
+      outline: 2px solid var(--tertiary);
+      outline-offset: 2px;
+    }
+
+    @include viewport.until(md) {
+      overflow: visible;
+      border: 0;
+      border-radius: 0;
+    }
   }
 
   &__table {
     width: 100%;
     min-width: 72em;
     margin: 0;
+
+    @include viewport.until(md) {
+      min-width: 0;
+    }
 
     .d-table__header-cell,
     .d-table__cell {
@@ -139,6 +159,15 @@
     .--numeric {
       text-align: right;
       white-space: nowrap;
+    }
+  }
+
+  &__cell-value {
+    overflow-wrap: anywhere;
+
+    @include viewport.until(md) {
+      max-width: 60%;
+      text-align: right;
     }
   }
 
@@ -185,9 +214,14 @@
 
   &__pagination {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.75em;
     align-items: center;
     justify-content: flex-end;
     margin-block-start: 1em;
+
+    @include viewport.until(sm) {
+      justify-content: space-between;
+    }
   }
 }

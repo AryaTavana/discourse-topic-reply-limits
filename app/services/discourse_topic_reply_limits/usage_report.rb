@@ -8,6 +8,7 @@ module DiscourseTopicReplyLimits
     Assignment = Data.define(:rule, :user_id)
 
     def initialize(page: nil, per_page: nil, query: nil)
+      @at = Time.zone.now
       @page = positive_integer(page, default: 1)
       @per_page =
         positive_integer(per_page, default: DEFAULT_PER_PAGE).clamp(
@@ -74,12 +75,25 @@ module DiscourseTopicReplyLimits
                 ON trll_topics.id = topic_reply_limit_rules.topic_id
               INNER JOIN groups trll_groups
                 ON trll_groups.id = topic_reply_limit_rules.group_id
+              LEFT JOIN topic_reply_limit_entitlements trll_entitlements
+                ON trll_entitlements.user_id = trll_group_users.user_id
             SQL
           .where("trll_topics.deleted_at IS NULL")
           .where(
             "trll_users.admin = FALSE AND trll_users.moderator = FALSE " \
               "AND trll_users.staged = FALSE"
           )
+          .where(<<~SQL.squish, at: @at)
+              trll_entitlements.id IS NULL OR (
+                trll_entitlements.group_id = topic_reply_limit_rules.group_id
+                AND trll_entitlements.revoked_at IS NULL
+                AND trll_entitlements.starts_at <= :at
+                AND (
+                  trll_entitlements.ends_at IS NULL OR
+                  trll_entitlements.ends_at > :at
+                )
+              )
+            SQL
 
       return relation if @query.blank?
 
@@ -126,7 +140,7 @@ module DiscourseTopicReplyLimits
           cycle_ends_at: usage.cycle_ends_at,
           next_credit_at:
             usage.next_credit_at(
-              Entitlement.current_for(user:, group: rule.group)
+              Entitlement.current_for(user:, group: rule.group, at: @at)
             ),
           monthly_allowance: usage.monthly_allowance,
           carried_in: usage.carried_in,
@@ -152,7 +166,8 @@ module DiscourseTopicReplyLimits
           next if user.blank? || topic.blank?
 
           rules = grouped_assignments.map(&:rule)
-          current = CycleUsage.current_for_rules!(user:, topic:, rules:)
+          current =
+            CycleUsage.current_for_rules!(user:, topic:, rules:, at: @at)
           grouped_assignments.each do |assignment|
             rule = assignment.rule
             usages[[user.id, rule.topic_id, rule.group_id]] = current[

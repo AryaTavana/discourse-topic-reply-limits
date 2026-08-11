@@ -242,6 +242,42 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::UsageController do
     )
   end
 
+  it "counts only the group selected by an external entitlement" do
+    second_group = Fabricate(:group)
+    second_group.add(user)
+    DiscourseTopicReplyLimits::Rule.create!(
+      topic:,
+      group: second_group,
+      reply_limit: 20,
+      warning_percentage: 80
+    )
+    DiscourseTopicReplyLimits::Entitlement.create!(
+      user:,
+      group:,
+      external_id: "django-subscription:single-active-tier",
+      starts_at: 1.day.ago
+    )
+    sign_in(admin)
+
+    get "/admin/plugins/discourse-topic-reply-limits/usage.json",
+        params: {
+          q: user.username
+        }
+
+    expect(response.status).to eq(200)
+    expect(response.parsed_body["usage_records"]).to contain_exactly(
+      include(
+        "user" => include("id" => user.id),
+        "group" => include("id" => group.id)
+      )
+    )
+    expect(response.parsed_body["meta"]).to include(
+      "total_count" => 1,
+      "start_index" => 1,
+      "end_index" => 1
+    )
+  end
+
   it "removes expired subscription assignments from the report" do
     group.remove(user)
     sign_in(admin)

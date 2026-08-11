@@ -63,7 +63,14 @@ export default <template>
           }}
         </p>
 
-        <div class="topic-reply-limit-usage__table-wrapper">
+        <div
+          class="topic-reply-limit-usage__table-wrapper"
+          role="region"
+          aria-label={{i18n
+            "discourse_topic_reply_limits.admin.usage.table_caption"
+          }}
+          tabindex="0"
+        >
           <table class="d-table topic-reply-limit-usage__table">
             <caption class="sr-only">
               {{i18n
@@ -129,41 +136,93 @@ export default <template>
                       </span>
                     </a>
                   </td>
-                  <td class="d-table__cell">
-                    <a href={{record.topic.url}}>
+                  <td class="d-table__cell --detail">
+                    <span class="d-table__mobile-label">
+                      {{i18n "discourse_topic_reply_limits.admin.usage.topic"}}
+                    </span>
+                    <a
+                      class="topic-reply-limit-usage__cell-value"
+                      href={{record.topic.url}}
+                    >
                       {{record.topic.title}}
                     </a>
                   </td>
-                  <td class="d-table__cell">{{record.group.name}}</td>
-                  <td class="d-table__cell">
-                    {{dFormatDate
-                      record.cycle_started_at
-                      format="medium"
-                      leaveAgo="true"
-                    }}
-                    –
-                    {{dFormatDate
-                      record.cycle_ends_at
-                      format="medium"
-                      leaveAgo="true"
-                    }}
+                  <td class="d-table__cell --detail">
+                    <span class="d-table__mobile-label">
+                      {{i18n "discourse_topic_reply_limits.admin.usage.group"}}
+                    </span>
+                    <span class="topic-reply-limit-usage__cell-value">
+                      {{record.group.name}}
+                    </span>
                   </td>
-                  <td class="d-table__cell --numeric">
-                    {{record.monthly_allowance}}
+                  <td class="d-table__cell --detail">
+                    <span class="d-table__mobile-label">
+                      {{i18n "discourse_topic_reply_limits.admin.usage.cycle"}}
+                    </span>
+                    <span class="topic-reply-limit-usage__cell-value">
+                      {{dFormatDate
+                        record.cycle_started_at
+                        format="medium"
+                        leaveAgo="true"
+                      }}
+                      –
+                      {{dFormatDate
+                        record.cycle_ends_at
+                        format="medium"
+                        leaveAgo="true"
+                      }}
+                    </span>
                   </td>
-                  <td class="d-table__cell --numeric">
-                    {{record.carried_in}}
+                  <td class="d-table__cell --detail --numeric">
+                    <span class="d-table__mobile-label">
+                      {{i18n
+                        "discourse_topic_reply_limits.admin.usage.monthly"
+                      }}
+                    </span>
+                    <span class="topic-reply-limit-usage__cell-value">
+                      {{record.monthly_allowance}}
+                    </span>
                   </td>
-                  <td class="d-table__cell --numeric">
-                    {{record.total_allowance}}
+                  <td class="d-table__cell --detail --numeric">
+                    <span class="d-table__mobile-label">
+                      {{i18n
+                        "discourse_topic_reply_limits.admin.usage.carried"
+                      }}
+                    </span>
+                    <span class="topic-reply-limit-usage__cell-value">
+                      {{record.carried_in}}
+                    </span>
                   </td>
-                  <td class="d-table__cell --numeric">
-                    <strong>{{record.reply_count}}</strong>
+                  <td class="d-table__cell --detail --numeric">
+                    <span class="d-table__mobile-label">
+                      {{i18n "discourse_topic_reply_limits.admin.usage.total"}}
+                    </span>
+                    <span class="topic-reply-limit-usage__cell-value">
+                      {{record.total_allowance}}
+                    </span>
                   </td>
-                  <td class="d-table__cell --numeric">
-                    <strong>{{record.remaining}}</strong>
+                  <td class="d-table__cell --detail --numeric">
+                    <span class="d-table__mobile-label">
+                      {{i18n "discourse_topic_reply_limits.admin.usage.used"}}
+                    </span>
+                    <strong class="topic-reply-limit-usage__cell-value">
+                      {{record.reply_count}}
+                    </strong>
                   </td>
-                  <td class="d-table__cell">
+                  <td class="d-table__cell --detail --numeric">
+                    <span class="d-table__mobile-label">
+                      {{i18n
+                        "discourse_topic_reply_limits.admin.usage.remaining"
+                      }}
+                    </span>
+                    <strong class="topic-reply-limit-usage__cell-value">
+                      {{record.remaining}}
+                    </strong>
+                  </td>
+                  <td class="d-table__cell --detail">
+                    <span class="d-table__mobile-label">
+                      {{i18n "discourse_topic_reply_limits.admin.usage.status"}}
+                    </span>
                     {{#if record.reached}}
                       <span
                         class="topic-reply-limit-usage__status --reached"
@@ -182,14 +241,21 @@ export default <template>
                       </span>
                     {{/if}}
                   </td>
-                  <td class="d-table__cell">
-                    {{#if record.last_reply_at}}
-                      {{dFormatDate record.last_reply_at format="medium"}}
-                    {{else}}
-                      <span aria-label={{i18n
-                        "discourse_topic_reply_limits.admin.usage.never"
-                      }}>—</span>
-                    {{/if}}
+                  <td class="d-table__cell --detail">
+                    <span class="d-table__mobile-label">
+                      {{i18n
+                        "discourse_topic_reply_limits.admin.usage.last_reply"
+                      }}
+                    </span>
+                    <span class="topic-reply-limit-usage__cell-value">
+                      {{#if record.last_reply_at}}
+                        {{dFormatDate record.last_reply_at format="medium"}}
+                      {{else}}
+                        <span aria-label={{i18n
+                          "discourse_topic_reply_limits.admin.usage.never"
+                        }}>—</span>
+                      {{/if}}
+                    </span>
                   </td>
                 </tr>
               {{/each}}

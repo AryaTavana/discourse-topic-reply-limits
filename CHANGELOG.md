@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.1
+
+- Keep the user-usage table inside its admin content area and render its rows as
+  labeled cards on narrow screens.
+- Make the horizontally scrollable desktop report keyboard accessible.
+- Count and paginate only assignments active for each user's current external
+  entitlement.
+
 ## 2.1.0
 
 - Add an optional per-topic/group carryover cap to the administrator rule form
