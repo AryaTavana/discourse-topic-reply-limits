@@ -2,7 +2,12 @@
 
 module DiscourseTopicReplyLimits
   class RuleSerializer < ::ApplicationSerializer
-    attributes :id, :group_id, :group_name, :reply_limit, :warning_percentage
+    attributes :id,
+               :group_id,
+               :group_name,
+               :reply_limit,
+               :warning_percentage,
+               :carryover_limit
 
     def group_name
       object.group.name

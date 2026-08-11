@@ -19,7 +19,19 @@ module DiscourseTopicReplyLimits
                 less_than: 100
               },
               if: :active?
-    validates :reply_limit, :warning_percentage, absence: true, unless: :active?
+    validates :carryover_limit,
+              numericality: {
+                only_integer: true,
+                greater_than_or_equal_to: 0,
+                less_than_or_equal_to: Rule::MAX_REPLY_LIMIT
+              },
+              allow_nil: true,
+              if: :active?
+    validates :reply_limit,
+              :warning_percentage,
+              :carryover_limit,
+              absence: true,
+              unless: :active?
 
     def self.record_active!(rule, at: Time.zone.now)
       latest =
@@ -28,7 +40,8 @@ module DiscourseTopicReplyLimits
           id: :desc
         ).first
       if latest&.active? && latest.reply_limit == rule.reply_limit &&
-           latest.warning_percentage == rule.warning_percentage
+           latest.warning_percentage == rule.warning_percentage &&
+           latest.carryover_limit == rule.carryover_limit
         return latest
       end
 
@@ -38,6 +51,7 @@ module DiscourseTopicReplyLimits
         effective_at: at,
         reply_limit: rule.reply_limit,
         warning_percentage: rule.warning_percentage,
+        carryover_limit: rule.carryover_limit,
         active: true
       )
     end
@@ -69,6 +83,7 @@ module DiscourseTopicReplyLimits
           effective_at: rule.created_at,
           reply_limit: rule.reply_limit,
           warning_percentage: rule.warning_percentage,
+          carryover_limit: rule.carryover_limit,
           active: true
         )
       end
@@ -98,6 +113,7 @@ end
 #
 #  id                 :bigint           not null, primary key
 #  active             :boolean          default(TRUE), not null
+#  carryover_limit    :integer
 #  effective_at       :datetime         not null
 #  reply_limit        :integer
 #  warning_percentage :integer

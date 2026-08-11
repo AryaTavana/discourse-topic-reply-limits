@@ -2,6 +2,7 @@ import { array, fn } from "@ember/helper";
 import { on } from "@ember/modifier";
 import { LinkTo } from "@ember/routing";
 import AdminConfigAreaEmptyList from "discourse/admin/components/admin-config-area-empty-list";
+import { eq } from "discourse/truth-helpers";
 import DButton from "discourse/ui-kit/d-button";
 import DPageSubheader from "discourse/ui-kit/d-page-subheader";
 import { i18n } from "discourse-i18n";
@@ -80,6 +81,18 @@ export default <template>
                             limit=assignment.reply_limit
                             percentage=assignment.warning_percentage
                           }}</span>
+                        <span>
+                          {{#if (eq assignment.carryover_limit null)}}
+                            {{i18n
+                              "discourse_topic_reply_limits.admin.rules.carryover_unlimited"
+                            }}
+                          {{else}}
+                            {{i18n
+                              "discourse_topic_reply_limits.admin.rules.carryover_summary"
+                              limit=assignment.carryover_limit
+                            }}
+                          {{/if}}
+                        </span>
                       </li>
                     {{/each}}
                   </ul>

@@ -12,13 +12,19 @@ RSpec.describe PostsController do
     sign_in(user)
   end
 
-  def create_rule(reply_limit:, warning_percentage: 80, target_user: user)
+  def create_rule(
+    reply_limit:,
+    warning_percentage: 80,
+    carryover_limit: nil,
+    target_user: user
+  )
     group.add(target_user)
     DiscourseTopicReplyLimits::Rule.create!(
       topic:,
       group:,
       reply_limit:,
-      warning_percentage:
+      warning_percentage:,
+      carryover_limit:
     )
   end
 
@@ -291,6 +297,66 @@ RSpec.describe PostsController do
         end
         create_reply(5)
         expect(response.status).to eq(422)
+      end
+    end
+
+    it "caps carryover when unused replies exceed the configured maximum" do
+      create_rule(reply_limit: 5, carryover_limit: 2)
+      create_reply(1)
+
+      entitlement =
+        DiscourseTopicReplyLimits::Entitlement.current_for(user:, group:)
+      next_cycle = entitlement.starts_at.advance(months: 1) + 1.second
+
+      freeze_time(next_cycle) do
+        state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+
+        expect(state[:assignments]).to contain_exactly(
+          include(
+            monthly_reply_limit: 5,
+            carried_in: 2,
+            total_allowance: 7,
+            remaining: 7
+          )
+        )
+      end
+    end
+
+    it "carries every unused reply when it is below the configured maximum" do
+      create_rule(reply_limit: 5, carryover_limit: 4)
+      3.times { |index| create_reply(index + 1) }
+
+      entitlement =
+        DiscourseTopicReplyLimits::Entitlement.current_for(user:, group:)
+      next_cycle = entitlement.starts_at.advance(months: 1) + 1.second
+
+      freeze_time(next_cycle) do
+        state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+
+        expect(state[:assignments]).to contain_exactly(
+          include(
+            monthly_reply_limit: 5,
+            carried_in: 2,
+            total_allowance: 7,
+            remaining: 7
+          )
+        )
+      end
+    end
+
+    it "disables carryover when the configured maximum is zero" do
+      create_rule(reply_limit: 2, carryover_limit: 0)
+
+      entitlement =
+        DiscourseTopicReplyLimits::Entitlement.current_for(user:, group:)
+      next_cycle = entitlement.starts_at.advance(months: 1) + 1.second
+
+      freeze_time(next_cycle) do
+        state = DiscourseTopicReplyLimits::ReplyState.for(user:, topic:)
+
+        expect(state[:assignments]).to contain_exactly(
+          include(carried_in: 0, total_allowance: 2, remaining: 2)
+        )
       end
     end
 

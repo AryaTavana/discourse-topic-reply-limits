@@ -106,51 +106,79 @@ export default class TopicReplyLimitRuleSetForm extends Component {
         }}
       >
         <form.Collection @name="assignments" as |collection index|>
-          <form.Container class="topic-reply-limit-form__assignment">
-            <form.Row>
-              <collection.Field
-                @name="group_id"
-                @title={{i18n
-                  "discourse_topic_reply_limits.admin.form.group"
-                }}
-                @type="custom"
-                @validation="required"
-                as |field|
-              >
-                <field.Control>
-                  <GroupChooser
-                    @value={{field.value}}
-                    @content={{this.groups}}
-                    @labelProperty="name"
-                    @onChange={{fn this.setGroup field}}
-                    @options={{hash maximum=1}}
-                  />
-                </field.Control>
-              </collection.Field>
+          <form.Container
+            @format="full"
+            @direction="column"
+            class="topic-reply-limit-form__assignment"
+          >
+            <form.Row as |row|>
+              <row.Col @size={{3}}>
+                <collection.Field
+                  @name="group_id"
+                  @title={{i18n
+                    "discourse_topic_reply_limits.admin.form.group"
+                  }}
+                  @type="custom"
+                  @format="full"
+                  @validation="required"
+                  as |field|
+                >
+                  <field.Control>
+                    <GroupChooser
+                      @value={{field.value}}
+                      @content={{this.groups}}
+                      @labelProperty="name"
+                      @onChange={{fn this.setGroup field}}
+                      @options={{hash maximum=1}}
+                    />
+                  </field.Control>
+                </collection.Field>
+              </row.Col>
 
-              <collection.Field
-                @name="reply_limit"
-                @title={{i18n
-                  "discourse_topic_reply_limits.admin.form.reply_limit"
-                }}
-                @type="input-number"
-                @validation="required|number|integer|between:1,1000000"
-                as |field|
-              >
-                <field.Control min="1" max="1000000" />
-              </collection.Field>
+              <row.Col @size={{3}}>
+                <collection.Field
+                  @name="reply_limit"
+                  @title={{i18n
+                    "discourse_topic_reply_limits.admin.form.reply_limit"
+                  }}
+                  @type="input-number"
+                  @format="full"
+                  @validation="required|number|integer|between:1,1000000"
+                  as |field|
+                >
+                  <field.Control min="1" max="1000000" />
+                </collection.Field>
+              </row.Col>
 
-              <collection.Field
-                @name="warning_percentage"
-                @title={{i18n
-                  "discourse_topic_reply_limits.admin.form.warning_percentage"
-                }}
-                @type="input-number"
-                @validation="required|number|integer|between:1,99"
-                as |field|
-              >
-                <field.Control min="1" max="99" />
-              </collection.Field>
+              <row.Col @size={{2}}>
+                <collection.Field
+                  @name="warning_percentage"
+                  @title={{i18n
+                    "discourse_topic_reply_limits.admin.form.warning_percentage"
+                  }}
+                  @type="input-number"
+                  @format="full"
+                  @validation="required|number|integer|between:1,99"
+                  as |field|
+                >
+                  <field.Control min="1" max="99" />
+                </collection.Field>
+              </row.Col>
+
+              <row.Col @size={{4}}>
+                <collection.Field
+                  @name="carryover_limit"
+                  @title={{i18n
+                    "discourse_topic_reply_limits.admin.form.carryover_limit"
+                  }}
+                  @type="input-number"
+                  @format="full"
+                  @validation="number|integer|between:0,1000000"
+                  as |field|
+                >
+                  <field.Control min="0" max="1000000" />
+                </collection.Field>
+              </row.Col>
             </form.Row>
 
             {{#if (gt data.assignments.length 1)}}
@@ -170,7 +198,12 @@ export default class TopicReplyLimitRuleSetForm extends Component {
           @action={{fn
             form.addItemToCollection
             "assignments"
-            (hash group_id=null reply_limit=5 warning_percentage=80)
+            (hash
+              group_id=null
+              reply_limit=5
+              warning_percentage=80
+              carryover_limit=null
+            )
           }}
           class="btn-default topic-reply-limit-form__add"
         />

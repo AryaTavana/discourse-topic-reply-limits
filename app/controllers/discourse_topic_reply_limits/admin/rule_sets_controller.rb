@@ -23,12 +23,26 @@ module DiscourseTopicReplyLimits
 
         render json: {
                  rule_sets:
-                   collections.map { |collection| serialize(collection) }
+                   collections.map do |collection|
+                     RuleSetSerializer.new(
+                       collection,
+                       scope: guardian,
+                       root: false
+                     ).as_json
+                   end
                }
       end
 
       def show
-        render json: { rule_set: serialize(collection_for(params[:topic_id])) }
+        collection = collection_for(params[:topic_id])
+        render json: {
+                 rule_set:
+                   RuleSetSerializer.new(
+                     collection,
+                     scope: guardian,
+                     root: false
+                   ).as_json
+               }
       end
 
       def create
@@ -42,7 +56,7 @@ module DiscourseTopicReplyLimits
 
       def destroy
         RuleSet::Destroy.call(
-          service_params.merge(params: { topic_id: params[:topic_id] })
+          service_params.deep_merge(params: { topic_id: params[:topic_id] })
         ) do
           on_success { head :no_content }
           on_failed_policy(:can_manage_reply_limits) do
@@ -58,10 +72,19 @@ module DiscourseTopicReplyLimits
       private
 
       def upsert_rule_set(payload: rule_set_params, status:)
-        RuleSet::Upsert.call(service_params.merge(params: payload)) do
+        service_input =
+          service_params.deep_merge(params: payload).deep_symbolize_keys
+
+        RuleSet::Upsert.call(service_input) do
           on_success do |topic:|
+            collection = collection_for(topic.id)
             render json: {
-                     rule_set: serialize(collection_for(topic.id))
+                     rule_set:
+                       RuleSetSerializer.new(
+                         collection,
+                         scope: guardian,
+                         root: false
+                       ).as_json
                    },
                    status:
           end
@@ -83,14 +106,19 @@ module DiscourseTopicReplyLimits
         permitted =
           params.require(:rule_set).permit(
             :topic_id,
-            assignments: %i[group_id reply_limit warning_percentage]
+            assignments: %i[
+              group_id
+              reply_limit
+              warning_percentage
+              carryover_limit
+            ]
           )
 
         {
           topic_id: permitted[:topic_id],
           assignments:
             permitted[:assignments].to_a.map do |assignment|
-              assignment.to_h.to_hash.symbolize_keys
+              assignment.to_h.to_a.to_h.transform_keys(&:to_sym)
             end
         }
       end
@@ -104,10 +132,6 @@ module DiscourseTopicReplyLimits
         raise Discourse::NotFound if rules.empty?
 
         RuleCollection.new(topic:, rules:)
-      end
-
-      def serialize(collection)
-        RuleSetSerializer.new(collection, scope: guardian, root: false).as_json
       end
 
       def render_contract_errors(contract)

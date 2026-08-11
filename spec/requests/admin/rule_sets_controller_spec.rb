@@ -12,8 +12,18 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::RuleSetsController do
       rule_set: {
         topic_id: topic.id,
         assignments: [
-          { group_id: group.id, reply_limit: 5, warning_percentage: 80 },
-          { group_id: second_group.id, reply_limit: 20, warning_percentage: 75 }
+          {
+            group_id: group.id,
+            reply_limit: 5,
+            warning_percentage: 80,
+            carryover_limit: 3
+          },
+          {
+            group_id: second_group.id,
+            reply_limit: 20,
+            warning_percentage: 75,
+            carryover_limit: nil
+          }
         ]
       }
     }
@@ -44,7 +54,8 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::RuleSetsController do
               include(
                 "group_id" => group.id,
                 "reply_limit" => 5,
-                "warning_percentage" => 80
+                "warning_percentage" => 80,
+                "carryover_limit" => nil
               )
             )
         )
@@ -127,7 +138,8 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::RuleSetsController do
             {
               group_id: second_group.id,
               reply_limit: 40,
-              warning_percentage: 90
+              warning_percentage: 90,
+              carryover_limit: 7
             }
           ]
         }
@@ -141,9 +153,10 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::RuleSetsController do
         DiscourseTopicReplyLimits::Rule.where(topic:).pluck(
           :group_id,
           :reply_limit,
-          :warning_percentage
+          :warning_percentage,
+          :carryover_limit
         )
-      ).to eq([[second_group.id, 40, 90]])
+      ).to eq([[second_group.id, 40, 90, 7]])
     end
   end
 

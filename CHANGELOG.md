@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0
+
+- Add an optional per-topic/group carryover cap to the administrator rule form
+  and JSON API.
+- Carry the smaller of the unused reply balance and the configured cap into the
+  next subscription cycle. A zero cap disables carryover; a blank cap preserves
+  the previous unlimited behavior.
+- Apply carryover-cap edits through effective-dated rule revisions and enforce
+  their range at both the service and database layers.
+
 ## 2.0.1
 
 - Apply reply-limit and warning-percentage edits immediately to every active

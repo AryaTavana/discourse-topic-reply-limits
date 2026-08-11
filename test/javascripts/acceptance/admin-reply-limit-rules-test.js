@@ -117,6 +117,12 @@ acceptance("Admin - Topic reply limits", function (needs) {
     assert
       .dom(".topic-reply-limit-form .form-kit__section")
       .exists({ count: 3 }, "the topic, group limits, and actions render");
+    assert
+      .dom('.topic-reply-limit-form input[type="number"]')
+      .exists(
+        { count: 3 },
+        "reply allowance, warning percentage, and carryover cap render"
+      );
   });
 
   test("shows active user balances on the usage route", async function (assert) {

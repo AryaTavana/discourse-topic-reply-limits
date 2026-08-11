@@ -25,13 +25,14 @@ granted when its start is at or after the subscription end.
 ```text
 total_available = cycle_allowance + carried_in
 remaining       = max(total_available - created_replies, 0)
-next carried_in = remaining (same entitlement ID only)
+next carried_in = min(remaining, carryover_limit) (same entitlement ID only)
 ```
 
-Carryover is uncapped while the same subscription ID remains active. Revocation
-makes its balance unavailable immediately. A later subscription ID starts with
-the base allowance and zero carryover; historical rows remain available for
-audit but are not consulted by the new ledger.
+When `carryover_limit` is null, `next carried_in` is the full remaining balance
+for backward compatibility. A zero cap disables carryover. Revocation makes the
+balance unavailable immediately. A later subscription ID starts with the base
+allowance and zero carryover; historical rows remain available for audit but
+are not consulted by the new ledger.
 
 The warning starts at:
 
@@ -44,8 +45,8 @@ ceil(total_available * warning_percentage / 100)
 `topic_reply_limit_rules` stores the administrator's current configuration.
 `topic_reply_limit_rule_revisions` stores effective-dated active/inactive
 revisions. The active cycle uses the latest committed revision immediately and
-reconciles its stored base allowance and warning percentage while retaining
-created replies and derived carryover. A completed cycle uses the last revision
+reconciles its stored base allowance, warning percentage, and carryover cap
+while retaining created replies. A completed cycle uses the last revision
 committed before that cycle ended, so later edits cannot rewrite historical
 ledgers. A brand-new rule may start in the current cycle.
 

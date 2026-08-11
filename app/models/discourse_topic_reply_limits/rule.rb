@@ -23,6 +23,13 @@ module DiscourseTopicReplyLimits
                 greater_than: 0,
                 less_than: 100
               }
+    validates :carryover_limit,
+              numericality: {
+                only_integer: true,
+                greater_than_or_equal_to: 0,
+                less_than_or_equal_to: MAX_REPLY_LIMIT
+              },
+              allow_nil: true
 
     def self.for_user_and_topic(user, topic_id)
       entitlement_group_id = Entitlement.find_by(user_id: user.id)&.group_id
@@ -39,6 +46,7 @@ end
 # Table name: topic_reply_limit_rules
 #
 #  id                 :bigint           not null, primary key
+#  carryover_limit    :integer
 #  reply_limit        :integer          not null
 #  warning_percentage :integer          default(80), not null
 #  created_at         :datetime         not null

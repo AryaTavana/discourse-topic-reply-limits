@@ -46,6 +46,10 @@
     margin-block-end: 1em;
     padding-block-end: 1em;
     border-block-end: 1px solid var(--primary-low);
+
+    > .form-kit__container-content {
+      gap: 0.75em;
+    }
   }
 
   &__remove,
@@ -55,12 +59,6 @@
 
   .form-kit__row {
     align-items: start;
-    gap: 1em;
-
-    @include viewport.until(md) {
-      display: grid;
-      grid-template-columns: 1fr;
-    }
   }
 }
 

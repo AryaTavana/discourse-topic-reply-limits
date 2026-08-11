@@ -10,7 +10,7 @@ grant access to topics.
 - One or more group-specific limits for any regular topic.
 - Topic and group search/select controls in Discourse Admin.
 - Allowance cycles anchored to the exact subscription purchase timestamp, with
-  unlimited unused-reply carryover.
+  a configurable unused-reply carryover cap per group assignment.
 - Authoritative Django entitlement synchronization: subscription ID, tier,
   purchase time, and expiration are delivered through a narrow idempotent API.
 - Configurable warning threshold per group (80% by default), calculated against
@@ -74,7 +74,8 @@ bundle exec rails db:migrate
 2. Open **Admin > Plugins > Topic reply limits > Reply limit rules**.
 3. Select an existing regular topic.
 4. Add one or more group assignments, each with its own reply allowance per
-   subscription cycle and warning percentage.
+   subscription cycle, warning percentage, and optional carryover cap. Enter
+   `0` to disable carryover or leave the cap blank for unlimited carryover.
 5. Save the rule set.
 
 Open **Admin > Plugins > Topic reply limits > User usage** to review each
@@ -86,12 +87,12 @@ removes their active allowance.
 
 For example, one topic can have these independent assignments:
 
-| Group | Allowance per subscription cycle | Warning |
-| --- | ---: | ---: |
-| `forum_general` | 5 | 80% |
-| `forum_advanced` | 20 | 80% |
-| `forum_master` | 40 | 80% |
-| `forum_elite` | 100 | 80% |
+| Group | Allowance per subscription cycle | Carryover cap | Warning |
+| --- | ---: | ---: | ---: |
+| `forum_general` | 5 | 2 | 80% |
+| `forum_advanced` | 20 | 10 | 80% |
+| `forum_master` | 40 | 20 | 80% |
+| `forum_elite` | 100 | Unlimited | 80% |
 
 The plugin only limits replies. To prevent members from creating topics, set
 Discourse's `create_topic_allowed_groups` site setting to the staff groups that
@@ -105,8 +106,10 @@ exact monthly anniversary of the subscription purchase:
 - Creating a reply consumes one unit.
 - Editing a reply consumes nothing.
 - Soft-deleting or permanently deleting a reply does not return a unit.
-- Unused replies carry forward without a cap. For example, using 2 of 5 leaves
-  3 carried replies; the next eligible month starts with 8 available.
+- Unused replies carry forward up to the assignment's carryover cap. For
+  example, using 2 of 5 leaves 3 unused replies; with a cap of 2, the next
+  eligible cycle starts with 7 available. If only 1 reply were unused, that 1
+  reply would carry forward. A blank cap preserves unlimited carryover.
 - If Django removes the user from the assigned group, all available replies and
   carryover for that group are removed immediately.
 - A July 25 purchase renews its allowance on August 25 at the same time, then
@@ -135,7 +138,8 @@ one forum tier group at a time, so normal subscribers match one tier rule.
 The installation migration creates:
 
 - `topic_reply_limit_rules`: one unique `(topic_id, group_id)` assignment with
-  positive `reply_limit`, `warning_percentage` from 1 through 99, and timestamps.
+  positive `reply_limit`, `warning_percentage` from 1 through 99, an optional
+  non-negative `carryover_limit`, and timestamps.
 - `topic_reply_limit_entitlements`: the current authoritative Django
   subscription ID, user/group mapping, exact purchase timestamp, expiration,
   and revocation marker.
@@ -185,11 +189,19 @@ Create/update body:
   "rule_set": {
     "topic_id": 123,
     "assignments": [
-      { "group_id": 45, "reply_limit": 20, "warning_percentage": 80 }
+      {
+        "group_id": 45,
+        "reply_limit": 20,
+        "warning_percentage": 80,
+        "carryover_limit": 10
+      }
     ]
   }
 }
 ```
+
+`carryover_limit` accepts `0` through `1000000`. Omit it or send `null` to keep
+unlimited carryover for that assignment.
 
 A logged-in user can request their own guardian-protected state for a visible
 topic:

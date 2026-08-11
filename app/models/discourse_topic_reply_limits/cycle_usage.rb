@@ -102,6 +102,7 @@ module DiscourseTopicReplyLimits
         end
 
         count, last_reply_at = reply_stats.fetch(interval[:index], [0, nil])
+        carried_in = capped_carryover(previous, settings.carryover_limit)
         row =
           find_or_create_by!(
             user:,
@@ -113,7 +114,7 @@ module DiscourseTopicReplyLimits
             usage.cycle_ends_at = interval[:ends_at]
             usage.monthly_allowance = settings.reply_limit
             usage.warning_percentage = settings.warning_percentage
-            usage.carried_in = previous&.remaining || 0
+            usage.carried_in = carried_in
             usage.reply_count = count
             usage.last_reply_at = last_reply_at
           end
@@ -121,7 +122,7 @@ module DiscourseTopicReplyLimits
           cycle_ends_at: interval[:ends_at],
           monthly_allowance: settings.reply_limit,
           warning_percentage: settings.warning_percentage,
-          carried_in: previous&.remaining || 0
+          carried_in:
         )
         if count > row.reply_count
           row.reply_count = count
@@ -175,6 +176,11 @@ module DiscourseTopicReplyLimits
       acquire_user_topic_locks!([[user_id, topic_id]])
     end
 
+    def self.capped_carryover(previous, carryover_limit)
+      remaining = previous&.remaining || 0
+      carryover_limit.nil? ? remaining : [remaining, carryover_limit].min
+    end
+
     def self.acquire_user_topic_locks!(pairs)
       keys =
         pairs.uniq.map do |user_id, topic_id|
@@ -187,7 +193,9 @@ module DiscourseTopicReplyLimits
       end
     end
 
-    private_class_method :materialize_current!, :historical_reply_stats_by_cycle
+    private_class_method :materialize_current!,
+                         :historical_reply_stats_by_cycle,
+                         :capped_carryover
   end
 end
 

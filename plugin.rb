@@ -2,7 +2,7 @@
 
 # name: discourse-topic-reply-limits
 # about: Applies subscription-cycle per-topic reply allowances with carryover to selected Discourse groups.
-# version: 2.0.1
+# version: 2.1.0
 # authors: Arya Tavana
 # url: https://github.com/AryaTavana/discourse-topic-reply-limits
 # required_version: 3.5.0
