@@ -163,10 +163,9 @@
   }
 
   &__cell-value {
-    overflow-wrap: anywhere;
-
     @include viewport.until(md) {
       max-width: 60%;
+      overflow-wrap: anywhere;
       text-align: right;
     }
   }
