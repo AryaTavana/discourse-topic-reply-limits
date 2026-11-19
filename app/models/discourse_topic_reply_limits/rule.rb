@@ -5,6 +5,7 @@ module DiscourseTopicReplyLimits
     self.table_name = "topic_reply_limit_rules"
 
     MAX_REPLY_LIMIT = 1_000_000
+    TRIAL_GROUP_NAME = "forum trial"
 
     belongs_to :topic, -> { with_deleted }
     belongs_to :group
@@ -36,7 +37,14 @@ module DiscourseTopicReplyLimits
       group_ids =
         GroupUser.where(user_id: user.id).pluck(:group_id) +
           [entitlement_group_id]
-      where(topic_id:, group_id: group_ids.compact.uniq).order(:group_id).to_a
+      rules =
+        where(topic_id:, group_id: group_ids.compact.uniq)
+          .includes(:group)
+          .order(:group_id)
+          .to_a
+
+      trial_rule = rules.find { |rule| rule.group.name.casecmp?(TRIAL_GROUP_NAME) }
+      trial_rule ? [trial_rule] : rules
     end
   end
 end
