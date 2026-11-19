@@ -185,6 +185,30 @@ RSpec.describe DiscourseTopicReplyLimits::ReplyState do
       )
     end
 
+    it "prioritizes a group named trial over other matching group rules" do
+      trial_group = Fabricate(:group, name: "trial")
+      trial_group.add(user)
+      DiscourseTopicReplyLimits::Rule.create!(
+        topic:,
+        group:,
+        reply_limit: 8,
+        warning_percentage: 80
+      )
+      DiscourseTopicReplyLimits::Rule.create!(
+        topic:,
+        group: trial_group,
+        reply_limit: 3,
+        warning_percentage: 80
+      )
+
+      state = described_class.for(user:, topic:)
+
+      expect(state[:assignments]).to contain_exactly(
+        include(monthly_reply_limit: 3, remaining: 3, unavailable: false)
+      )
+      expect(state[:reached]).to eq(false)
+    end
+
     it "returns no state when the setting is disabled" do
       DiscourseTopicReplyLimits::Rule.create!(
         topic:,

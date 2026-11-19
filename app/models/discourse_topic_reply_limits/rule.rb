@@ -5,7 +5,7 @@ module DiscourseTopicReplyLimits
     self.table_name = "topic_reply_limit_rules"
 
     MAX_REPLY_LIMIT = 1_000_000
-    TRIAL_GROUP_NAME = "forum trial"
+    TRIAL_GROUP_NAMES = %w[trial forum trial].freeze
 
     belongs_to :topic, -> { with_deleted }
     belongs_to :group
@@ -43,7 +43,10 @@ module DiscourseTopicReplyLimits
           .order(:group_id)
           .to_a
 
-      trial_rule = rules.find { |rule| rule.group.name.casecmp?(TRIAL_GROUP_NAME) }
+      trial_rule =
+        rules.find do |rule|
+          TRIAL_GROUP_NAMES.any? { |name| rule.group.name.casecmp?(name) }
+        end
       trial_rule ? [trial_rule] : rules
     end
   end
