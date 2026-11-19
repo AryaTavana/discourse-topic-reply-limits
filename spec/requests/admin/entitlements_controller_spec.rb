@@ -4,6 +4,7 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::EntitlementsController do
   fab!(:admin)
   fab!(:moderator)
   fab!(:user)
+  fab!(:second_user, :user)
   fab!(:group)
 
   fab!(:single_sign_on_record) do
@@ -119,6 +120,44 @@ RSpec.describe DiscourseTopicReplyLimits::Admin::EntitlementsController do
           }
 
       expect(response.status).to eq(422)
+      expect(response.parsed_body["errors"]).to be_present
+      expect(DiscourseTopicReplyLimits::Entitlement.all).to be_empty
+    end
+
+    it "rejects multiple records for the same user before applying either" do
+      sign_in(admin)
+      duplicate_records =
+        sync_params[:entitlements] +
+          [sync_params[:entitlements].first.merge(entitlement_id: "subscription-502")]
+
+      put "/admin/plugins/discourse-topic-reply-limits/entitlements/sync.json",
+          params: { entitlements: duplicate_records }
+
+      expect(response.status).to eq(400)
+      expect(response.parsed_body["errors"]).to be_present
+      expect(DiscourseTopicReplyLimits::Entitlement.all).to be_empty
+    end
+
+    it "rejects the same subscription ID assigned to multiple users" do
+      second_sso_record =
+        SingleSignOnRecord.create!(
+          user: second_user,
+          external_id: "django-user-43",
+          last_payload: ""
+        )
+      sign_in(admin)
+
+      put "/admin/plugins/discourse-topic-reply-limits/entitlements/sync.json",
+          params: {
+            entitlements: [
+              sync_params[:entitlements].first,
+              sync_params[:entitlements].first.merge(
+                user_external_id: second_sso_record.external_id
+              )
+            ]
+          }
+
+      expect(response.status).to eq(400)
       expect(response.parsed_body["errors"]).to be_present
       expect(DiscourseTopicReplyLimits::Entitlement.all).to be_empty
     end

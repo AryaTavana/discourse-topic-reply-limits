@@ -10,3 +10,5 @@ en:
   errors:
     messages:
       duplicate_groups: "must not contain the same group more than once"
+      duplicate_users: "must not contain more than one entitlement per user"
+      duplicate_entitlements: "must not assign one subscription to multiple users"

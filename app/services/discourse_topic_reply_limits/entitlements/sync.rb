@@ -43,6 +43,24 @@ module DiscourseTopicReplyLimits
                   length: {
                     maximum: MAX_BATCH_SIZE
                   }
+        validate :entitlement_records_are_unique
+
+        def entitlement_records_are_unique
+          records = entitlements.to_a
+          duplicate_user =
+            records.map(&:user_external_id).compact.tally.any? do |_id, count|
+              count > 1
+            end
+          if duplicate_user
+            errors.add(:entitlements, :duplicate_users)
+          end
+
+          entitlement_ids =
+            records.filter_map(&:entitlement_id).reject(&:blank?)
+          if entitlement_ids.tally.any? { |_id, count| count > 1 }
+            errors.add(:entitlements, :duplicate_entitlements)
+          end
+        end
       end
 
       policy :can_sync_entitlements
